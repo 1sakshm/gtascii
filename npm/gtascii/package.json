@@ -11,6 +11,5 @@
     "gtascii-server": "bin/gtascii-server.js"
   },
   "files": ["bin/", "lib/", "data/", "README.md", "LICENSE"],
-  "engines": { "node": ">=16" },
-  "optionalDependencies": {}
+  "engines": { "node": ">=16" }
 }

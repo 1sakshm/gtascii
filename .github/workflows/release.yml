@@ -57,32 +57,26 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Assemble packages
+      - name: Assemble package
         run: |
-          for key in win32-x64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            node scripts/build-npm.mjs platform "$key" "artifacts/bin-$key"
-          done
           node scripts/build-npm.mjs main
+          for key in win32-x64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            node scripts/build-npm.mjs bin "$key" "artifacts/bin-$key"
+          done
+          ls -lR dist/npm/gtascii/bin
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          # Platform packages first, so the main package's optional dependencies resolve.
-          for dir in dist/npm/gtascii-*/; do
-            (cd "$dir" && npm publish --access public --provenance)
-          done
-          (cd dist/npm/gtascii && npm publish --access public --provenance)
+        run: (cd dist/npm/gtascii && npm publish --access public --provenance)
       - name: GitHub release with zips
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist/npm
-          for dir in gtascii-*/; do
-            key="${dir%/}"
-            mkdir -p "zip/$key"
-            cp -r ../../dist/npm/gtascii/data "zip/$key/"
-            cp "$key"/bin/* "zip/$key/"
-            (cd zip && zip -qr "$key.zip" "$key")
+          for key in win32-x64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            mkdir -p "zip/gtascii-$key"
+            cp -r gtascii/data "zip/gtascii-$key/"
+            cp gtascii/bin/$key/* "zip/gtascii-$key/"
+            (cd zip && zip -qr "gtascii-$key.zip" "gtascii-$key")
           done
-          gh release create "${GITHUB_REF_NAME}" zip/*.zip --title "Grand Theft ASCII ${GITHUB_REF_NAME}" --generate-notes || \
-            gh release upload "${GITHUB_REF_NAME}" zip/*.zip --clobber
+          gh release create "${GITHUB_REF_NAME}" zip/*.zip --title "Grand Theft ASCII ${GITHUB_REF_NAME}" --generate-notes ||             gh release upload "${GITHUB_REF_NAME}" zip/*.zip --clobber

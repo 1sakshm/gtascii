@@ -16,7 +16,7 @@ npx gtascii               # try it without installing
 npm install -g gtascii    # or install it, then just run: gtascii
 ```
 
-npm downloads a prebuilt native binary for your machine:
+The package ships prebuilt native binaries for:
 
 - Windows x64
 - Linux x64 and arm64
@@ -271,30 +271,28 @@ ctest --test-dir build --output-on-failure     # 103 tests
 
 ## Releasing to npm
 
-The packaging works the way esbuild's does:
-
-- `gtascii` holds the launcher and the game data.
-- Its `optionalDependencies` are `gtascii-win32-x64`, `gtascii-linux-x64`, `gtascii-linux-arm64`, `gtascii-darwin-x64` and `gtascii-darwin-arm64`.
-- npm installs only the package that matches the user's machine.
+The single `gtascii` package holds the launcher, the game data, and the
+native binaries for all 5 platforms (`bin/<platform>/`). The launcher picks
+the right binary at run time.
 
 To release:
 
-1. Push the repository to GitHub and add an npm **Automation** token as the repository secret `NPM_TOKEN`.
-2. Bump `VERSION`.
-3. Push a matching tag: `git tag v1.0.0 && git push --tags`.
+1. Bump `VERSION`.
+2. Push a matching tag: `git tag v1.0.1 && git push --tags`.
 
-`.github/workflows/release.yml` then:
+`.github/workflows/release.yml` builds and tests every platform, publishes the
+package with provenance using the `NPM_TOKEN` repository secret, and creates a
+GitHub release with a standalone zip for each platform.
 
-1. Builds and tests all 5 platforms.
-2. Publishes the 6 packages, with provenance.
-3. Creates a GitHub release with a standalone zip for each platform.
+npm holds a newly published package in **Staged Packages** on npmjs.com until
+a maintainer approves it with 2FA.
 
-To build the packages locally:
+To build and test the package locally:
 
 ```sh
-node scripts/build-npm.mjs platform win32-x64 build/client   # folder holding gtascii(.exe) + gtascii-server(.exe)
-node scripts/build-npm.mjs main --platforms win32-x64
-node scripts/build-npm.mjs pack                               # tarballs in dist/npm
+node scripts/build-npm.mjs main
+node scripts/build-npm.mjs bin win32-x64 path/to/binaries   # holds gtascii(.exe) + gtascii-server(.exe)
+node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<version>.tgz
 ```
 
 ## Tests (103)

@@ -1,21 +1,27 @@
 #!/usr/bin/env node
-// Assembles the npm packages for Grand Theft ASCII.
+// Assembles the npm package for Grand Theft ASCII.
 //
-//   node scripts/build-npm.mjs platform <key> <dir-with-binaries>
-//       -> dist/npm/gtascii-<key>/   (key: win32-x64, linux-x64, linux-arm64, darwin-x64, darwin-arm64)
-//   node scripts/build-npm.mjs main [--platforms a,b,c]
-//       -> dist/npm/gtascii/         (launcher + game data; depends on the platform packages)
+// One package carries the launcher, the game data and the native binaries of
+// every supported platform (bin/<key>/), so there is a single package to
+// publish and approve. The launcher picks the right binary at run time.
+//
+//   node scripts/build-npm.mjs bin <key> <dir-with-binaries>
+//       -> adds dist/npm/gtascii/bin/<key>/   (key: win32-x64, linux-x64, linux-arm64, darwin-x64, darwin-arm64)
+//   node scripts/build-npm.mjs main
+//       -> dist/npm/gtascii/ launcher + data (keeps binaries added with `bin`)
 //   node scripts/build-npm.mjs pack
-//       -> runs `npm pack` in every assembled package (tarballs in dist/npm/)
+//       -> npm pack (tarball in dist/npm/)
 //
-// The version comes from the VERSION file at the repository root.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, readdirSync, chmodSync } from 'node:fs';
+// Run `main` first, then `bin` once per platform. The version comes from the
+// VERSION file at the repository root.
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist', 'npm');
+const out = join(dist, 'gtascii');
 const version = readFileSync(join(root, 'VERSION'), 'utf8').trim();
 const ALL = ['win32-x64', 'linux-x64', 'linux-arm64', 'darwin-x64', 'darwin-arm64'];
 
@@ -28,36 +34,22 @@ function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 }
 
-function buildPlatform(key, binDir) {
+function addBinaries(key, binDir) {
   if (!ALL.includes(key)) throw new Error(`unknown platform ${key}; expected one of ${ALL.join(', ')}`);
-  const [os, cpu] = key.split('-');
-  const out = join(dist, `gtascii-${key}`);
-  fresh(join(out, 'bin'));
-  const ext = os === 'win32' ? '.exe' : '';
+  if (!existsSync(join(out, 'package.json'))) throw new Error('run `main` first');
+  const target = join(out, 'bin', key);
+  fresh(target);
+  const ext = key.startsWith('win32') ? '.exe' : '';
   for (const name of ['gtascii', 'gtascii-server']) {
     const src = join(binDir, name + ext);
     if (!existsSync(src)) throw new Error(`missing ${src}`);
-    cpSync(src, join(out, 'bin', name + ext));
-    if (!ext) chmodSync(join(out, 'bin', name), 0o755);
+    cpSync(src, join(target, name + ext));
+    if (!ext) chmodSync(join(target, name), 0o755);
   }
-  writeJson(join(out, 'package.json'), {
-    name: `gtascii-${key}`,
-    version,
-    description: `Grand Theft ASCII native binaries for ${key}`,
-    license: 'MIT',
-    repository: { type: 'git', url: 'git+https://github.com/1sakshm/gtascii.git' },
-    os: [os],
-    cpu: [cpu],
-    files: ['bin/'],
-    preferUnplugged: true,
-  });
-  cpSync(join(root, 'LICENSE'), join(out, 'LICENSE'));
-  writeFileSync(join(out, 'README.md'), `Native binaries of [gtascii](https://www.npmjs.com/package/gtascii) for ${key}. Install \`gtascii\` instead.\n`);
-  console.log(`built ${out}`);
+  console.log(`added ${key} binaries`);
 }
 
-function buildMain(platforms) {
-  const out = join(dist, 'gtascii');
+function buildMain() {
   fresh(out);
   const src = join(root, 'npm', 'gtascii');
   cpSync(join(src, 'bin'), join(out, 'bin'), { recursive: true });
@@ -69,27 +61,18 @@ function buildMain(platforms) {
   cpSync(join(root, 'config'), join(out, 'data', 'config'), { recursive: true, filter: (p) => !p.endsWith('.gitkeep') });
   const manifest = JSON.parse(readFileSync(join(src, 'package.json'), 'utf8'));
   manifest.version = version;
-  manifest.optionalDependencies = Object.fromEntries(platforms.map((p) => [`gtascii-${p}`, version]));
   writeJson(join(out, 'package.json'), manifest);
-  console.log(`built ${out} (v${version}, platforms: ${platforms.join(', ')})`);
-}
-
-function packAll() {
-  for (const entry of readdirSync(dist, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    execSync('npm pack --pack-destination ..', { cwd: join(dist, entry.name), stdio: 'inherit' });
-  }
+  console.log(`built ${out} (v${version})`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === 'platform') {
-  buildPlatform(rest[0], resolve(rest[1]));
+if (cmd === 'bin') {
+  addBinaries(rest[0], resolve(rest[1]));
 } else if (cmd === 'main') {
-  const i = rest.indexOf('--platforms');
-  buildMain(i >= 0 ? rest[i + 1].split(',') : ALL);
+  buildMain();
 } else if (cmd === 'pack') {
-  packAll();
+  execSync('npm pack --pack-destination ..', { cwd: out, stdio: 'inherit' });
 } else {
-  console.error('usage: build-npm.mjs platform <key> <bindir> | main [--platforms a,b] | pack');
-  process.exit(2);
+  console.error('usage: build-npm.mjs main | bin <key> <bindir> | pack');
+  process.exit(1);
 }

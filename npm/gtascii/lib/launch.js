@@ -19,19 +19,12 @@ function binaryPath(name) {
     return path.join(process.env.GTASCII_BINARY_DIR, exe);
   }
   const key = platformKey();
-  const pkg = `gtascii-${key}`;
-  try {
-    const manifest = require.resolve(`${pkg}/package.json`);
-    return path.join(path.dirname(manifest), 'bin', exe);
-  } catch (err) {
-    if (!SUPPORTED.includes(key)) {
-      fail(`Grand Theft ASCII has no prebuilt version for ${key} yet.\n` +
-           `Supported: ${SUPPORTED.join(', ')}. You can build it from source with CMake (see the project README).`);
-    }
-    fail(`The ${pkg} package is missing. It is installed automatically as an optional dependency;\n` +
-         `reinstall without --no-optional / --omit=optional:  npm install -g gtascii`);
+  if (!SUPPORTED.includes(key)) {
+    fail(`Grand Theft ASCII has no prebuilt version for ${key} yet.
+` +
+         `Supported: ${SUPPORTED.join(', ')}. You can build it from source with CMake (see the project README).`);
   }
-  return '';
+  return path.join(__dirname, '..', 'bin', key, exe);
 }
 
 function fail(message) {
@@ -42,7 +35,7 @@ function fail(message) {
 function run(name, args) {
   const bin = binaryPath(name);
   if (!fs.existsSync(bin)) {
-    fail(`binary not found at ${bin}`);
+    fail(`binary not found at ${bin}; try reinstalling: npm install -g gtascii`);
   }
   if (process.platform !== 'win32') {
     try { fs.chmodSync(bin, 0o755); } catch (_) { /* read-only install: fine if already executable */ }
