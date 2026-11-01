@@ -28,7 +28,11 @@ if [ -z "$code" ]; then
 fi
 echo "room $code created by $host"
 
-"$bin" --relay "$relay" --join "$code" --name "${host}g" --frames 300 --no-audio --no-mouse --samples 1 < /dev/null > "$work/guest.txt" 2>&1
+status=0
+"$bin" --relay "$relay" --join "$code" --name "${host}g" --frames 300 --no-audio --no-mouse --samples 1 < /dev/null > "$work/guest.txt" 2>&1 || status=$?
+if [ "$status" != 0 ]; then
+  echo "guest exited with $status:"; tail -c 2000 "$work/guest.txt"; echo; echo "host:"; tail -c 1000 "$work/host.txt"; kill "$host_pid" || true; exit 1
+fi
 summary="$(grep -ao "Grand Theft ASCII session:.*" "$work/guest.txt" | tail -1 || true)"
 echo "guest: $summary"
 if grep -aq "Disconnected" "$work/guest.txt" || ! grep -aq "2 players" "$work/guest.txt"; then
