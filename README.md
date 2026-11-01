@@ -125,17 +125,22 @@ Set the volume in Settings, or turn sound off with `--no-audio`.
 
 ## Multiplayer
 
-There are three ways to play together. They all use one port, **41986**
-(TCP and UDP).
+There are three ways to play together:
 
-1. **Online rooms.** These go through the room server named in Settings, under
-   *Room server*. One server hosts any number of rooms, each with its own
-   city and its own save. Create a room, then share the 4-letter code.
-2. **LAN.** Pick *Create Room* while no room server is set, or run
-   `gtascii --host`. Other players on the same network see the room under
-   *Browse Rooms*.
-3. **Direct connect.** Use `gtascii --connect 1.2.3.4`. Players outside your
-   network need TCP and UDP port 41986 forwarded.
+1. **Online rooms.** Use *Multiplayer → Create online room*, then share the
+   4-letter code. Friends pick *Join with a room code*, or find public rooms
+   under *Browse rooms*.
+   - The room runs inside the host's game, and a free Cloudflare relay
+     forwards the traffic.
+   - Nobody needs a public IP, port forwarding or a server.
+   - The room closes when the host leaves.
+   - From the command line: `gtascii --create` and `gtascii --join K7PX`.
+2. **LAN.** Pick *Host a LAN room*, or run `gtascii --host`. Other players on
+   the same network see the room under *Browse rooms*. Online rooms are
+   visible on the LAN too.
+3. **Direct connect.** Use `gtascii --connect 1.2.3.4`, which also connects
+   to a dedicated server. Players outside the host's network need TCP and UDP
+   port 41986 forwarded.
 
 ### Room modes
 
@@ -153,25 +158,43 @@ There are three ways to play together. They all use one port, **41986**
 Players block each other physically, and cars carry up to four people. The
 scoreboard (`Tab`) ranks everyone in the room.
 
-### Hosting the free room server
+### The online relay
 
-The cheapest good option is an **Oracle Cloud "Always Free" VM**. It's free
-indefinitely and has a public IP. `deploy/README.md` walks through it. In
-short, on the VM:
+`relay/` is a Cloudflare Worker, about 250 lines of JavaScript.
+
+- **Durable Objects:** each room is a Durable Object, and a second one keeps
+  the list of public rooms.
+- **Records:** the host and each guest keep one WebSocket to the relay. Binary
+  messages carry `[kind][peer][length][payload]` records, each holding one
+  game TCP frame or one UDP datagram.
+- **Batching:** both sides batch records every 50 ms. That stays well inside
+  the Workers Free plan, which needs no card and stops for the day instead of
+  charging. The plan allows roughly 5-7 hours of 4-player games per day.
+- **Game-side bridges:** in the game, `client/Relay` turns the WebSocket back
+  into loopback TCP and UDP sockets, so the server and `NetClient` don't know
+  a relay exists.
+- **TLS:** it comes from the operating system. That's WinHTTP on Windows,
+  Secure Transport on macOS, and the system OpenSSL on Linux.
+
+To deploy your own relay:
 
 ```sh
-sudo bash install-server.sh     # from deploy/
+cd relay
+npx wrangler login     # free Cloudflare account; opens the browser
+npx wrangler deploy    # prints https://gtascii-relay.<you>.workers.dev
 ```
 
-The script installs Node and `gtascii`, opens port 41986, and runs
-`gtascii server --rooms` as a systemd service.
+Then put `wss://gtascii-relay.<you>.workers.dev` in `config/client.json`
+(`network.lobby`). Players can also change it under *Multiplayer → Room
+server*. `npx wrangler dev` runs the relay locally, and the game connects to
+it with `--relay ws://127.0.0.1:8787`.
 
-Then set `network.lobby` in `config/client.json` to the VM's IP before
-releasing, so everyone gets it by default. Players can also change it in
-Settings.
+### Dedicated servers
 
-Any other Linux box works the same way, including a Raspberry Pi with the
-port forwarded. For a quick test on one machine:
+`gtascii server --rooms` runs a room server that keeps rooms running without
+a host. Room codes work the same way, so set *Room server* to `host:port` to
+use one. `deploy/README.md` sets it up as a service on any Linux machine.
+For a quick test on one machine:
 
 ```sh
 gtascii server --rooms --local
@@ -312,6 +335,8 @@ node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<
 
 ## Known limitations
 
+- **Online rooms**: they last only as long as the host's game. The free relay
+  plan also has a daily limit, roughly 5-7 hours of 4-player games.
 - **Platforms**: Linux and macOS builds are checked by CI. The POSIX terminal and socket code has had less hands-on testing than Windows.
 - **Audio**: sound only plays on Windows. Other platforms run silently.
 - **Snapshots**: a snapshot carries the 40-45 nearest entities, so in very crowded areas the farthest ones drop out.

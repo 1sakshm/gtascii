@@ -14,18 +14,17 @@ terminal with 24-bit colour. Make the window big, or the font small.
 
 ## Multiplayer
 
-- **Online rooms**: in the main menu, go to Multiplayer → Create online room
-  and share the 4-letter code. Friends pick Join with a room code.
-  This needs a room server (see below).
+- **Online rooms**:
+  - In the main menu, go to Multiplayer → Create online room and share the 4-letter code. Friends pick Join with a room code, or find public rooms under Browse rooms.
+  - No port forwarding or server is needed. Your game hosts the room, and a free relay connects everyone.
+  - From the command line: `gtascii --create` or `gtascii --join CODE`.
 - **LAN**: Multiplayer → Host a LAN room. Players on the same network see it
   under Browse rooms.
 - **Direct**: `gtascii --connect host[:port]`.
 
-### Run a room server (free)
-
-On any Linux machine or VPS (Oracle Cloud's Always Free ARM VM works well),
-run `npx gtascii-server --rooms`, then open TCP and UDP port 41986. Players
-set the address under Multiplayer → Room server.
+Rooms that stay up without a host can run on a dedicated room server:
+`gtascii server --rooms` on any machine with TCP and UDP port 41986 open.
+Players then set its address under Multiplayer → Room server.
 
 ## Controls
 

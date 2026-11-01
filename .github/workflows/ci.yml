@@ -26,3 +26,8 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Online rooms through the relay
+        shell: bash
+        run: |
+          bin="$(find build -type f \( -name gtascii -o -name gtascii.exe \) -not -path '*/CMakeFiles/*' | head -1)"
+          bash scripts/relay-smoke.sh "$bin"

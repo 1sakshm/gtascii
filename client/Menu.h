@@ -13,7 +13,7 @@ class Terminal;
 
 namespace client {
 
-enum class MenuChoice { SinglePlayer, HostLan, Join, Quit };
+enum class MenuChoice { SinglePlayer, HostLan, Join, HostOnline, JoinOnline, Quit };
 
 struct MenuOutcome {
     MenuChoice choice = MenuChoice::Quit;

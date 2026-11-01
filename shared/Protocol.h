@@ -50,6 +50,7 @@ struct RoomInfo {
     bool isPublic = true;
     std::string address; // filled in by the client (LAN discovery / lobby host)
     std::uint16_t port = 0;
+    bool relay = false;  // client-side: listed by the online relay (join by code)
 };
 
 struct CreateRoomRequest {

@@ -2,6 +2,7 @@
 #include "Game.h"
 #include "Lobby.h"
 #include "Menu.h"
+#include "Relay.h"
 
 #include "Audio/Audio.h"
 #include "Core/FileUtil.h"
@@ -23,6 +24,9 @@ const char* kUsage =
     "  --host                 Host a LAN room right away\n"
     "  --connect HOST[:PORT]  Join a server / room server (default port 41986)\n"
     "  --room CODE            Room to join on that server\n"
+    "  --create               Create an online room right away\n"
+    "  --join CODE            Join an online room right away\n"
+    "  --relay URL            Online relay to use (default: the Room server setting)\n"
     "  --name NAME            Player name (overrides settings)\n"
     "  --password PW          Protects your name/progress on a server\n"
     "  --hour H               Start time of day, 0-24\n"
@@ -65,7 +69,7 @@ int main(int argc, char** argv)
         client::LaunchOptions opts;
         opts.dataRoot = dataRoot;
         opts.config = client::ClientConfig::loadLayered(dataRoot / "config/client.json", client::ClientConfig::userPath());
-        bool direct = false, audioOn = true;
+        bool direct = false, audioOn = true, listOnline = false;
         std::string menuDemo;
         int cols = 120, rows = 40;
 
@@ -85,7 +89,7 @@ int main(int argc, char** argv)
                 usage(stdout);
                 return 0;
             } else if (a == "--version") {
-                std::printf("gtascii 1.0.0 (protocol %d)\n", av::proto::kProtocolVersion);
+                std::printf("gtascii %s (protocol %d)\n", GTASCII_VERSION, av::proto::kProtocolVersion);
                 return 0;
             } else if (a == "--data") {
                 need("--data");
@@ -99,6 +103,17 @@ int main(int argc, char** argv)
                 opts.mode = client::SessionMode::Join;
                 opts.serverAddress = need("--connect");
                 direct = true;
+            } else if (a == "--create") {
+                opts.mode = client::SessionMode::OnlineHost;
+                direct = true;
+            } else if (a == "--join") {
+                opts.mode = client::SessionMode::OnlineJoin;
+                opts.roomCode = client::normalizeRoomCode(need("--join"));
+                direct = true;
+            } else if (a == "--relay") {
+                opts.config.lobby = need("--relay");
+            } else if (a == "--list-rooms") { // hidden: relay check for CI / debugging
+                listOnline = true;
             } else if (a == "--room") {
                 opts.roomCode = client::normalizeRoomCode(need("--room"));
             } else if (a == "--name") {
@@ -140,6 +155,26 @@ int main(int argc, char** argv)
         if (opts.hostRoom.name.empty()) {
             opts.hostRoom.name = opts.config.playerName + "'s room";
         }
+        opts.relayUrl = opts.config.lobby;
+        const bool online = opts.mode == client::SessionMode::OnlineHost || opts.mode == client::SessionMode::OnlineJoin;
+        if ((online || listOnline) && !client::isRelayUrl(opts.relayUrl)) {
+            std::fprintf(stderr, "error: online rooms need a relay URL (--relay wss://... or the Room server setting)\n");
+            return 2;
+        }
+        if (listOnline) {
+            std::string error;
+            const auto rooms = client::listRelayRooms(opts.relayUrl, error);
+            if (!rooms) {
+                std::fprintf(stderr, "error: %s\n", error.c_str());
+                return 1;
+            }
+            std::printf("%zu online room(s) on %s\n", rooms->size(), opts.relayUrl.c_str());
+            for (const auto& r : *rooms) {
+                std::printf("  %s  %-24s %s  %d/%d\n", r.code.c_str(), r.name.c_str(), av::proto::toString(r.mode), r.players,
+                            r.maxPlayers);
+            }
+            return 0;
+        }
 
         av::Audio audio;
         if (audioOn && opts.config.volume > 0.0f && opts.maxFrames == 0) {
@@ -172,6 +207,14 @@ int main(int argc, char** argv)
                     client::LaunchOptions session = opts; // includes settings changed in the menu
                     if (choice.choice == client::MenuChoice::SinglePlayer) {
                         session.mode = client::SessionMode::SinglePlayer;
+                    } else if (choice.choice == client::MenuChoice::HostOnline) {
+                        session.mode = client::SessionMode::OnlineHost;
+                        session.hostRoom = choice.hostRoom;
+                        session.relayUrl = session.config.lobby;
+                    } else if (choice.choice == client::MenuChoice::JoinOnline) {
+                        session.mode = client::SessionMode::OnlineJoin;
+                        session.roomCode = choice.roomCode;
+                        session.relayUrl = session.config.lobby;
                     } else if (choice.choice == client::MenuChoice::HostLan) {
                         session.mode = client::SessionMode::Host;
                         session.hostRoom = choice.hostRoom;

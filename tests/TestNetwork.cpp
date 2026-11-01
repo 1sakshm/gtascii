@@ -2,6 +2,10 @@
 // real loopback sockets (server thread + two clients).
 #include "TestHarness.h"
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers" // Hello{...} without the optional room
+#endif
+
 #include "GameServer.h"
 #include "NetClient.h"
 #include "Protocol.h"

@@ -34,6 +34,6 @@
     "network": {
         "server": "",             // "" = single player; "host:port" to join a server
         "hostPort": 41986,        // port used by --host
-        "lobby": ""               // online room server "host[:port]"; set this to your VM before releasing
+        "lobby": "wss://gtascii-relay.sakshamsai26.workers.dev" // online rooms: relay URL (relay/), or a room server "host[:port]"
     }
 }

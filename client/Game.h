@@ -18,6 +18,8 @@ enum class SessionMode {
     SinglePlayer, // private server on 127.0.0.1 in a background thread
     Host,         // same, but visible to (and joinable from) the local network
     Join,         // connect to a room server / dedicated server / LAN host
+    OnlineHost,   // like Host, plus an online room on the relay (code in hostRoom / generated)
+    OnlineJoin,   // join an online room through the relay (roomCode)
 };
 
 struct LaunchOptions {
@@ -27,6 +29,7 @@ struct LaunchOptions {
     std::string serverAddress;               // Join: "host[:port]"
     std::string roomCode;                    // Join: room to enter ("" = main room)
     av::proto::CreateRoomRequest hostRoom;   // Host: name / mode / size
+    std::string relayUrl;                    // OnlineHost / OnlineJoin: the relay (wss://...)
     std::uint64_t maxFrames = 0;
     bool autopilot = false;
     bool hourGiven = false; // --hour on the command line overrides the saved world clock

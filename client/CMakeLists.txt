@@ -5,6 +5,7 @@ add_executable(gtascii
     GameHud.cpp
     LocalPlayer.cpp
     Lobby.cpp
+    Relay.cpp
     Menu.cpp
     Recorder.cpp
     NetClient.cpp
@@ -13,3 +14,5 @@ add_executable(gtascii
 # The client embeds the server library for single player and host mode.
 target_link_libraries(gtascii PRIVATE av_server)
 av_configure_executable(gtascii)
+
+target_compile_definitions(gtascii PRIVATE GTASCII_VERSION="${GTASCII_VERSION}")

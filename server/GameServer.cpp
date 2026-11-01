@@ -78,7 +78,7 @@ std::string GameServer::newRoomCode()
 GameServer::Room* GameServer::createRoom(const std::string& name, GameMode mode, bool isPublic, int maxPlayers, bool permanent)
 {
     auto room = std::make_unique<Room>();
-    room->code = permanent ? "MAIN" : newRoomCode();
+    room->code = permanent ? config_.mainRoomCode : newRoomCode();
     room->name = sanitize(name.empty() ? "Room" : name, 24);
     room->mode = mode;
     room->isPublic = isPublic;
@@ -293,7 +293,7 @@ void GameServer::handleHello(Client& c, const std::vector<std::uint8_t>& payload
         reject("Incompatible game version - please update Grand Theft ASCII.");
         return;
     }
-    Room* room = hello->room.empty() ? findRoom("MAIN") : findRoom(hello->room);
+    Room* room = hello->room.empty() ? findRoom(config_.mainRoomCode) : findRoom(hello->room);
     if (!room) {
         reject(hello->room.empty() ? "This server only hosts rooms - join one with a room code."
                                    : "No room with code " + upper(hello->room) + ".");

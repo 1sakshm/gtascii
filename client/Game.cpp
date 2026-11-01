@@ -5,6 +5,7 @@
 #include "Missions.h"
 #include "NetClient.h"
 #include "Recorder.h"
+#include "Relay.h"
 #include "RemoteWorld.h"
 
 #include "GameServer.h"
@@ -100,8 +101,11 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
 
     // ---- server: embedded (single player / LAN host) or remote (join) ----
     std::unique_ptr<server::EmbeddedServer> embedded;
+    std::unique_ptr<RelayHost> relayHost;
+    std::unique_ptr<RelayGuest> relayGuest;
+    bool relayLost = false;
     NetAddress address;
-    std::string connectionLabel;
+    std::string connectionLabel, onlineCode;
     if (opts.mode == SessionMode::Join) {
         const auto parsed = NetAddress::parse(opts.serverAddress, kDefaultPort);
         if (!parsed) {
@@ -109,9 +113,33 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         }
         address = *parsed;
         connectionLabel = opts.serverAddress;
+    } else if (opts.mode == SessionMode::OnlineJoin) {
+        relayGuest = std::make_unique<RelayGuest>();
+        std::string error;
+        if (!relayGuest->start(opts.relayUrl, opts.roomCode, error)) {
+            throw std::runtime_error(error);
+        }
+        address.ip = 0x7F000001;
+        address.port = relayGuest->localPort();
+        connectionLabel = "online room " + opts.roomCode;
     } else {
+        const bool online = opts.mode == SessionMode::OnlineHost;
+        const bool host = opts.mode == SessionMode::Host || online;
+        if (online) {
+            // Register the room on the relay first: its code becomes the room code.
+            relayHost = std::make_unique<RelayHost>();
+            std::string error;
+            bool registered = false;
+            for (int attempt = 0; attempt < 6 && !registered; ++attempt) {
+                onlineCode = randomRoomCode();
+                int status = 0;
+                error.clear();
+                registered = relayHost->start(opts.relayUrl, onlineCode, opts.hostRoom, error, &status);
+                if (!registered && status != 409) break; // 409: code taken, try another
+            }
+            if (!registered) throw std::runtime_error(error);
+        }
         server::ServerConfig sc = server::ServerConfig::load(root / "config/server.json");
-        const bool host = opts.mode == SessionMode::Host;
         sc.loopbackOnly = !host;
         sc.lanDiscovery = host;
         sc.port = host ? cfg.hostPort : 0;
@@ -121,6 +149,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         sc.seed = cfg.seed;
         sc.roomServer = false;
         sc.mainRoom = true;
+        if (online) sc.mainRoomCode = onlineCode;
         if (host) {
             sc.roomName = opts.hostRoom.name.empty() ? cfg.playerName + "'s room" : opts.hostRoom.name;
             sc.mode = opts.hostRoom.mode;
@@ -143,7 +172,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         }
         address.ip = 0x7F000001;
         address.port = embedded->port();
-        connectionLabel = host ? "LAN host :" + std::to_string(address.port) : "single player";
+        if (relayHost) relayHost->serve(embedded->port());
+        connectionLabel = online ? "online room " + onlineCode : host ? "LAN host :" + std::to_string(address.port) : "single player";
     }
 
     NetClient net;
@@ -232,7 +262,10 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     std::uint8_t lastFrozen = 0;
 
     chatLog.push_back({welcome.motd, {255, 215, 80}, 0.0f});
-    if (opts.mode == SessionMode::Host) {
+    if (opts.mode == SessionMode::OnlineHost) {
+        chatLog.push_back({"Online room " + welcome.roomCode + " is open - friends join with this code (Tab shows it again)",
+                           {70, 230, 240}, 0.0f});
+    } else if (opts.mode == SessionMode::Host) {
         chatLog.push_back({"Hosting \"" + welcome.roomName + "\" on your network (port " + std::to_string(address.port) +
                                ") - friends find it under Multiplayer > Browse rooms",
                            {70, 230, 240}, 0.0f});
@@ -474,7 +507,15 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         net.poll();
         if (!net.connected()) {
             summary.disconnectReason = net.disconnectReason().empty() ? "Lost connection to the server" : net.disconnectReason();
+            if (relayGuest && !relayGuest->alive() && !relayGuest->problem().empty()) {
+                summary.disconnectReason = relayGuest->problem();
+            }
             running = false;
+        }
+        if (relayHost && !relayLost && !relayHost->alive()) {
+            relayLost = true;
+            chatLog.push_back({"Online relay lost (" + relayHost->problem() + ") - players on your network can still join",
+                               {255, 120, 90}, 0.0f});
         }
         const std::vector<Snapshot> snaps = net.takeSnapshots();
         for (const Snapshot& s : snaps) {

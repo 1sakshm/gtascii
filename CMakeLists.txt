@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(GTAscii VERSION 0.1.0 LANGUAGES CXX)
+# The release version lives in VERSION (shared with the npm package).
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" GTASCII_VERSION)
+string(STRIP "${GTASCII_VERSION}" GTASCII_VERSION)
+project(GTAscii VERSION ${GTASCII_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

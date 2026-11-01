@@ -18,7 +18,11 @@ ClientConfig ClientConfig::load(const std::filesystem::path& path)
 ClientConfig ClientConfig::loadLayered(const std::filesystem::path& defaults, const std::filesystem::path& user)
 {
     ClientConfig c = load(defaults);
+    const std::string defaultLobby = c.lobby;
     c.apply(user);
+    if (c.lobby.empty()) {
+        c.lobby = defaultLobby; // settings saved before the online relay existed
+    }
     return c;
 }
 

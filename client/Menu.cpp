@@ -6,6 +6,7 @@
 #endif
 
 #include "Lobby.h"
+#include "Relay.h"
 #include "RemoteWorld.h"
 
 #include "Animation/Humanoid.h"
@@ -239,12 +240,12 @@ struct MainMenu::Impl {
             v.push_back({"Join with a room code", nullptr, nullptr, [this] { go(Screen::JoinCode); }, nullptr, 0,
                          "A friend gives you a 4-letter code"});
             v.push_back({"Create online room", nullptr, nullptr, [this] { createOnline = true; go(Screen::CreateRoom); }, nullptr, 0,
-                         "Hosted on the room server - anyone with the code can join"});
+                         "Hosted by your game - anyone online with the code can join"});
             v.push_back({"Host a LAN room", nullptr, nullptr, [this] { createOnline = false; go(Screen::CreateRoom); }, nullptr, 0,
                          "Runs on this PC; players on your network see it in Browse"});
             v.push_back({"Direct connect", nullptr, nullptr, [this] { go(Screen::Direct); }, nullptr, 0, "Join a server by address"});
             v.push_back({"Room server", [this] { return cfg.lobby.empty() ? std::string("(not set)") : cfg.lobby; }, nullptr,
-                         [this] { editing = true; }, &cfg.lobby, 60, "Address of an online room server, e.g. play.example.com"});
+                         [this] { editing = true; }, &cfg.lobby, 60, "Online relay (wss://...) or a room server address"});
             v.push_back({"Back", nullptr, nullptr, [this] { back(); }, nullptr, 0, ""});
             break;
         case Screen::CreateRoom: {
@@ -264,6 +265,11 @@ struct MainMenu::Impl {
                              if (!createOnline) {
                                  outcome.hostRoom = roomRequest;
                                  finish(MenuChoice::HostLan);
+                                 return;
+                             }
+                             if (isRelayUrl(cfg.lobby)) {
+                                 outcome.hostRoom = roomRequest;
+                                 finish(MenuChoice::HostOnline);
                                  return;
                              }
                              const auto addr = lobbyAddress();
@@ -292,6 +298,11 @@ struct MainMenu::Impl {
                                  say("Room codes are 4 letters/digits, like K7PX");
                                  return;
                              }
+                             if (isRelayUrl(cfg.lobby)) {
+                                 outcome.roomCode = code;
+                                 finish(MenuChoice::JoinOnline);
+                                 return;
+                             }
                              if (!lobbyAddress()) return;
                              outcome.address = cfg.lobby;
                              outcome.roomCode = code;
@@ -303,13 +314,17 @@ struct MainMenu::Impl {
         case Screen::Browse:
             v.push_back({"Refresh", nullptr, nullptr, [this] { browseStale = true; }, nullptr, 0, "Searches the room server and your network"});
             for (const RoomInfo& r : browse) {
-                const bool lan = r.address.empty() ? false : (cfg.lobby.empty() || r.address != cfg.lobby);
+                const bool lan = !r.relay && !r.address.empty() && (cfg.lobby.empty() || r.address != cfg.lobby);
                 const std::string label = r.name.substr(0, 22);
                 const std::string detail = std::string(toString(r.mode)) + "  " + std::to_string(r.players) + "/" + std::to_string(r.maxPlayers) + (lan ? "  LAN" : "");
                 v.push_back({label, [detail] { return detail; }, nullptr,
                              [this, r] {
-                                 outcome.address = r.address + ":" + std::to_string(r.port);
                                  outcome.roomCode = r.code;
+                                 if (r.relay) {
+                                     finish(MenuChoice::JoinOnline);
+                                     return;
+                                 }
+                                 outcome.address = r.address + ":" + std::to_string(r.port);
                                  finish(MenuChoice::Join);
                              },
                              nullptr, 0, "Room " + r.code});
@@ -633,7 +648,14 @@ struct MainMenu::Impl {
                 say("Searching for rooms...");
                 fb.clear();
                 browse = discoverLanRooms(600);
-                if (!cfg.lobby.empty()) {
+                if (isRelayUrl(cfg.lobby)) {
+                    std::string error;
+                    if (auto online = listRelayRooms(cfg.lobby, error)) {
+                        for (const RoomInfo& r : *online) browse.push_back(r);
+                    } else {
+                        say(error);
+                    }
+                } else if (!cfg.lobby.empty()) {
                     if (const auto addr = NetAddress::parse(cfg.lobby, kDefaultPort)) {
                         std::string error;
                         if (auto online = listRooms(*addr, error, 2500)) {

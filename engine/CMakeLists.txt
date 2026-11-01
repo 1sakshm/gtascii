@@ -27,6 +27,7 @@ set(AV_ENGINE_SOURCES
     Physics/CollisionWorld.cpp
     Physics/Vehicle.cpp
     Networking/Net.cpp
+    Networking/WebSocket.cpp
     Platform/InputState.cpp
     World/Buildings.cpp
     World/ChunkManager.cpp
@@ -50,5 +51,12 @@ if(WIN32)
     target_compile_definitions(av_engine PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     # winmm: timeBeginPeriod for accurate frame pacing.
     target_link_libraries(av_engine PRIVATE winmm)
-    target_link_libraries(av_engine PUBLIC ws2_32)
+    target_link_libraries(av_engine PUBLIC ws2_32 winhttp)
+endif()
+if(APPLE)
+    # Secure Transport for wss:// (online rooms).
+    target_link_libraries(av_engine PUBLIC "-framework Security" "-framework CoreFoundation")
+elseif(UNIX)
+    # dlopen() of the system OpenSSL for wss://.
+    target_link_libraries(av_engine PUBLIC ${CMAKE_DL_LIBS})
 endif()

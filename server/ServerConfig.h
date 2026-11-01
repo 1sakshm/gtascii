@@ -28,6 +28,7 @@ struct ServerConfig {
     // Rooms
     bool roomServer = false;     // online room server: players create rooms with codes
     bool mainRoom = true;        // keep a permanent room for players who join without a code
+    std::string mainRoomCode = "MAIN"; // its code (online-hosted games use their relay code)
     std::string roomName = "Main";
     av::proto::GameMode mode = av::proto::GameMode::FreeRoam;
     int maxRooms = 16;
