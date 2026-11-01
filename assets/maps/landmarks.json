@@ -1,0 +1,25 @@
+// Hand-placed landmarks. "chunk" is [x, z] in 64 m chunk coordinates;
+// the coast road runs along chunk column x = 3 (beach), ocean beyond, a canal
+// crosses the city along chunk row z = 4 and the docks are at x = 3, z <= -4.
+// Types: safehouse, tower, grand_hotel, lighthouse, park, police_station,
+// hospital, dealership. "district" optionally overrides the procedural
+// district (park, downtown, residential). "marker" / "respawn" are
+// chunk-local [x, z] positions used by gameplay (interaction point, where
+// players reappear).
+{
+    "spawn": {"position": [32.0, 0.2, 12.5], "yawDegrees": 0},
+    "landmarks": [
+        {"name": "Ocean Breeze Safehouse", "type": "safehouse", "chunk": [0, 0], "district": "residential",
+         "marker": [32.0, 18.2], "respawn": [32.0, 12.5], "garage": [44.0, 13.0]},
+        {"name": "Vice Tower", "type": "tower", "chunk": [0, -2], "district": "downtown", "height": 140},
+        {"name": "Hotel Flamingo", "type": "grand_hotel", "chunk": [2, 1], "floors": 8},
+        {"name": "Point Lighthouse", "type": "lighthouse", "chunk": [3, -3]},
+        {"name": "Bayfront Park", "type": "park", "chunk": [-1, 1], "district": "park"},
+        {"name": "Precinct 86", "type": "police_station", "chunk": [-2, -1], "district": "residential",
+         "respawn": [12.0, 32.0]},
+        {"name": "Mercy General Hospital", "type": "hospital", "chunk": [1, 2], "district": "residential",
+         "respawn": [32.0, 50.0]},
+        {"name": "Sunshine Motors", "type": "dealership", "chunk": [1, 0], "district": "residential",
+         "marker": [32.0, 10.0], "delivery": [20.0, 2.5]}
+    ]
+}

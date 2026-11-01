@@ -1,0 +1,51 @@
+// Missions. Places are {"chunk": [x, z], "at": [local x, local z]} (64 m chunks).
+// Types:
+//   courier      points = [pickup, dropoff]
+//   checkpoints  points = route in order ("requiresVehicle" for driving routes)
+//   delivery     drive the spawned "vehicle" to points[0] under "damageLimit"
+//   escape       start with "wanted" stars and lose the police
+// "time" is the limit in seconds (0 = none); "reward" is paid on success
+// (half on repeats).
+{
+    "missions": [
+        {"id": "hot_package", "title": "Hot Package", "type": "courier",
+         "briefing": "A friend needs a package moved across town. No questions.",
+         "start": {"chunk": [0, 0], "at": [7, 36]},
+         "points": [{"chunk": [2, -2], "at": [57, 27]}, {"chunk": [-2, 2], "at": [36, 7]}],
+         "time": 170, "reward": 600},
+
+        {"id": "beach_sprint", "title": "Beach Sprint", "type": "checkpoints",
+         "briefing": "Run the beach checkpoints before the clock runs out.",
+         "start": {"chunk": [3, 0], "at": [7, 20]},
+         "points": [{"chunk": [3, 0], "at": [25, 40]}, {"chunk": [3, 1], "at": [30, 20]},
+                    {"chunk": [3, 1], "at": [22, 55]}, {"chunk": [3, 2], "at": [30, 30]},
+                    {"chunk": [3, 2], "at": [7, 52]}],
+         "time": 85, "reward": 350},
+
+        {"id": "joyride", "title": "Joyride", "type": "delivery",
+         "briefing": "Deliver a Neon Coupe to the docks. Keep the paint shiny.",
+         "start": {"chunk": [-1, -1], "at": [57, 32]},
+         "vehicle": "coupe", "vehicleSpawn": {"chunk": [-1, -1], "at": [61.5, 36], "yawDegrees": 0},
+         "points": [{"chunk": [3, -5], "at": [20, 32]}],
+         "time": 150, "damageLimit": 0.7, "reward": 1200},
+
+        {"id": "heat", "title": "Heat", "type": "escape",
+         "briefing": "Someone tipped off the cops. Lose them.",
+         "start": {"chunk": [0, -1], "at": [32, 57]},
+         "wanted": 3, "reward": 1500},
+
+        {"id": "harbor_run", "title": "Harbor Run", "type": "courier",
+         "briefing": "Pick up a crate at the foundry and bring it to the lighthouse.",
+         "start": {"chunk": [3, -4], "at": [20, 20]},
+         "points": [{"chunk": [-5, -1], "at": [57, 32]}, {"chunk": [3, -3], "at": [20, 44]}],
+         "time": 240, "reward": 900},
+
+        {"id": "night_cruise", "title": "Canal Cruise", "type": "checkpoints",
+         "briefing": "Drive the canal bridges loop. You'll need wheels.",
+         "start": {"chunk": [0, 3], "at": [7, 32]}, "requiresVehicle": true,
+         "points": [{"chunk": [0, 4], "at": [2.5, 32]}, {"chunk": [0, 6], "at": [32, 2.5]},
+                    {"chunk": [2, 5], "at": [61.5, 32]}, {"chunk": [2, 4], "at": [61.5, 32]},
+                    {"chunk": [1, 3], "at": [32, 61.5]}],
+         "time": 140, "reward": 700}
+    ]
+}

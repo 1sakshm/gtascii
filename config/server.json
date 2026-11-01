@@ -1,0 +1,18 @@
+// GRAND THEFT ASCII server configuration (dedicated server, and the local server
+// that single player runs in the background).
+{
+    "port": 41986,
+    "tickRate": 30,
+    "snapshotRate": 20,
+    "maxPlayers": 8,
+    "pedestrians": 22,
+    "trafficCars": 10,
+    "loadRadius": 2,
+    "dayLengthMinutes": 20,
+    "startHour": 17.5,
+    "seed": 1986,
+    "savePath": "saves/world.json",
+    "autosaveSeconds": 60,
+    "allowCheats": true,
+    "motd": "Welcome to Grand Theft ASCII. Type /help in chat."
+}

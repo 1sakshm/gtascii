@@ -1,0 +1,28 @@
+// Street races (multiplayer activity). Every player in the room gets a car
+// on the starting grid; first through all checkpoints wins.
+// Places are {"chunk": [x, z], "at": [local x, local z]}; lanes run 2.5 m
+// from the chunk edges (x = 2.5 / 61.5 on north-south roads, z = 2.5 / 61.5
+// on east-west roads). "yawDegrees": 0 = south (+Z), 90 = east, 180 = north.
+{
+    "races": [
+        {"id": "downtown_loop", "name": "Downtown Loop",
+         "start": {"chunk": [0, -1], "at": [2.5, 44], "yawDegrees": 180},
+         "checkpoints": [
+             {"chunk": [0, -2], "at": [2.5, 20]}, {"chunk": [0, -3], "at": [24, 2.5]},
+             {"chunk": [1, -3], "at": [32, 2.5]}, {"chunk": [2, -3], "at": [2.5, 32]},
+             {"chunk": [2, -2], "at": [2.5, 32]}, {"chunk": [2, -1], "at": [2.5, 40]},
+             {"chunk": [1, 0], "at": [32, 2.5]}, {"chunk": [0, 0], "at": [2.5, 2.5]}]},
+        {"id": "ocean_drive", "name": "Ocean Drive Sprint",
+         "start": {"chunk": [3, -2], "at": [2.5, 40], "yawDegrees": 0},
+         "checkpoints": [
+             {"chunk": [3, -1], "at": [2.5, 32]}, {"chunk": [3, 0], "at": [2.5, 32]},
+             {"chunk": [3, 1], "at": [2.5, 32]}, {"chunk": [3, 2], "at": [2.5, 32]},
+             {"chunk": [3, 3], "at": [2.5, 32]}, {"chunk": [3, 4], "at": [2.5, 32]}]},
+        {"id": "canal_bridges", "name": "Canal Bridges",
+         "start": {"chunk": [-1, 3], "at": [2.5, 32], "yawDegrees": 0},
+         "checkpoints": [
+             {"chunk": [-1, 4], "at": [2.5, 32]}, {"chunk": [-1, 5], "at": [32, 2.5]},
+             {"chunk": [0, 5], "at": [32, 2.5]}, {"chunk": [1, 4], "at": [2.5, 32]},
+             {"chunk": [1, 3], "at": [32, 61.5]}, {"chunk": [0, 3], "at": [2.5, 32]}]}
+    ]
+}

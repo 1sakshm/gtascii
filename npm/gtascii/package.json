@@ -1,0 +1,16 @@
+{
+  "name": "gtascii",
+  "version": "0.0.0",
+  "description": "Grand Theft ASCII - a multiplayer open-world 3D game that runs in your terminal",
+  "keywords": ["game", "terminal", "ascii", "3d", "multiplayer", "open-world", "tui"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/1sakshm/gtascii.git" },
+  "homepage": "https://github.com/1sakshm/gtascii#readme",
+  "bin": {
+    "gtascii": "bin/gtascii.js",
+    "gtascii-server": "bin/gtascii-server.js"
+  },
+  "files": ["bin/", "lib/", "data/", "README.md", "LICENSE"],
+  "engines": { "node": ">=16" },
+  "optionalDependencies": {}
+}

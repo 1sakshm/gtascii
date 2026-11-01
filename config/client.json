@@ -1,0 +1,39 @@
+// GRAND THEFT ASCII client configuration. Command-line options override these.
+{
+    "render": {
+        "samplesX": 2,            // sub-samples per terminal cell (1-4); 1x1 is fastest
+        "samplesY": 2,
+        "cellAspect": 2.0,        // terminal cell height / width
+        "outlines": true,
+        "ramp": "standard",       // standard | detailed | blocks | minimal
+        "maxPointLights": 16,
+        "targetFps": 60,
+        "colorBits": 8,
+        "fogStart": 50,
+        "fogEnd": 170
+    },
+    "world": {
+        "seed": 1986,
+        "loadRadius": 2,          // chunks in each direction (64 m each)
+        "detailDistance": 110,    // metres; windows/props/markings beyond this are skipped
+        "startHour": 17.5,
+        "dayLengthMinutes": 20    // real minutes per in-game day (0 = time stands still)
+    },
+    "camera": {
+        "distance": 4.8,
+        "keyRotateSpeed": 2.2,    // radians per second for arrow keys
+        "mouseSensitivity": 0.035,// radians per cell of mouse drag
+        "autoRecenterDelay": 3.0, // seconds; 0 disables automatic recentering
+        "invertY": false
+    },
+    "player": {
+        "name": "Player",         // your name on servers (1-16 letters/digits/_/-)
+        "password": "",           // optional: protects your name and progress on a server
+        "seed": 7                 // appearance; change it for a different look
+    },
+    "network": {
+        "server": "",             // "" = single player; "host:port" to join a server
+        "hostPort": 41986,        // port used by --host
+        "lobby": ""               // online room server "host[:port]"; set this to your VM before releasing
+    }
+}

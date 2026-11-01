@@ -1,0 +1,46 @@
+# Newspaper vending box (street prop). Units: metres, origin at the base centre.
+# Loaded through the OBJ pipeline to exercise model importing.
+
+# body (0.45 x 0.95 x 0.40)
+v -0.225 0.00 -0.20
+v  0.225 0.00 -0.20
+v  0.225 0.95 -0.20
+v -0.225 0.95 -0.20
+v -0.225 0.00  0.20
+v  0.225 0.00  0.20
+v  0.225 0.95  0.20
+v -0.225 0.95  0.20
+
+# window panel on the front (+Z), slightly proud of the body
+v -0.17 0.55 0.205
+v  0.17 0.55 0.205
+v  0.17 0.85 0.205
+v -0.17 0.85 0.205
+
+# sloped lid
+v -0.24 0.95 -0.22
+v  0.24 0.95 -0.22
+v  0.24 1.02 -0.22
+v -0.24 1.02 -0.22
+v -0.24 0.95  0.22
+v  0.24 0.95  0.22
+v  0.24 0.98  0.22
+v -0.24 0.98  0.22
+
+usemtl newsbox_blue
+# body sides (counter-clockwise seen from outside)
+f 5 6 7 8
+f 2 1 4 3
+f 6 2 3 7
+f 1 5 8 4
+
+usemtl newsbox_glass
+f 9 10 11 12
+
+usemtl newsbox_blue
+# lid
+f 20 19 15 16
+f 17 18 19 20
+f 14 13 16 15
+f 18 14 15 19
+f 13 17 20 16

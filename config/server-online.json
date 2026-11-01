@@ -1,0 +1,24 @@
+// Online room server (e.g. on a free Oracle Cloud VM). Players create rooms
+// from the game's Multiplayer menu and share the 4-letter code.
+{
+    "port": 41986,
+    "roomServer": true,
+    "mainRoom": true,
+    "roomName": "Main Street",
+    "maxRooms": 24,
+    "emptyRoomSeconds": 180,
+    "maxPlayers": 12,
+    "tickRate": 30,
+    "snapshotRate": 20,
+    "pedestrians": 18,
+    "trafficCars": 9,
+    "loadRadius": 2,
+    "dayLengthMinutes": 24,
+    "startHour": 17.0,
+    "seed": 1986,
+    "savePath": "saves/online-main.json",
+    "autosaveSeconds": 120,
+    "allowCheats": false,
+    "lanDiscovery": false,
+    "motd": "Welcome to Grand Theft ASCII online. /room shows your room code."
+}

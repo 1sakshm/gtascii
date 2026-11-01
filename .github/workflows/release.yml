@@ -1,0 +1,88 @@
+name: Release
+
+# Push a tag like v1.0.0 (matching the VERSION file) to build every platform,
+# publish the npm packages and attach zips to a GitHub release.
+# Requires the repository secret NPM_TOKEN (an npm "Automation" token).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: build ${{ matrix.key }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { key: win32-x64,    os: windows-latest }
+          - { key: linux-x64,    os: ubuntu-22.04 }
+          - { key: linux-arm64,  os: ubuntu-24.04-arm }
+          - { key: darwin-x64,   os: macos-13 }
+          - { key: darwin-arm64, os: macos-14 }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAV_BUILD_DEMOS=OFF
+      - name: Build
+        run: cmake --build build --config Release --parallel --target gtascii gtascii-server engine_tests
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Collect binaries
+        shell: bash
+        run: |
+          mkdir -p out
+          find build -type f \( -name 'gtascii' -o -name 'gtascii.exe' -o -name 'gtascii-server' -o -name 'gtascii-server.exe' \) \
+            -not -path '*/CMakeFiles/*' -exec cp {} out/ \;
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.key }}
+          path: out/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Assemble packages
+        run: |
+          for key in win32-x64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            node scripts/build-npm.mjs platform "$key" "artifacts/bin-$key"
+          done
+          node scripts/build-npm.mjs main
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Platform packages first, so the main package's optional dependencies resolve.
+          for dir in dist/npm/gtascii-*/; do
+            (cd "$dir" && npm publish --access public --provenance)
+          done
+          (cd dist/npm/gtascii && npm publish --access public --provenance)
+      - name: GitHub release with zips
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist/npm
+          for dir in gtascii-*/; do
+            key="${dir%/}"
+            mkdir -p "zip/$key"
+            cp -r ../../dist/npm/gtascii/data "zip/$key/"
+            cp "$key"/bin/* "zip/$key/"
+            (cd zip && zip -qr "$key.zip" "$key")
+          done
+          gh release create "${GITHUB_REF_NAME}" zip/*.zip --title "Grand Theft ASCII ${GITHUB_REF_NAME}" --generate-notes || \
+            gh release upload "${GITHUB_REF_NAME}" zip/*.zip --clobber
