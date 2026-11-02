@@ -213,10 +213,15 @@ TEST_CASE("Interiors: the casino door takes you inside, the slots take your mone
     CHECK(a.me().body.motor.position.y > kInteriorFloorY - 1.0f); // standing on the floor, not falling
 
     a.place(slot);
-    const int money = a.world->buildStatus(a.player).money;
-    a.hold(Buttons::Interact, 0.04f);
-    a.hold(0, 0.1f);
-    CHECK(a.world->buildStatus(a.player).money != money);
+    // Five spins: each one costs $100 and pays 0, 100, 200, 500 or 5000.
+    for (int spin = 0; spin < 5; ++spin) {
+        const int money = a.world->buildStatus(a.player).money;
+        a.hold(Buttons::Interact, 0.04f);
+        a.hold(0, 1.3f); // the machine's cooldown
+        const int change = a.world->buildStatus(a.player).money - money;
+        CHECK(change == -100 || change == 0 || change == 100 || change == 400 || change == 4900);
+        CHECK(a.pc().casinoCooldown < 1.0f);
+    }
 
     a.place(exitDoor);
     a.hold(Buttons::Interact, 0.04f);
