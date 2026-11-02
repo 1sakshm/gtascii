@@ -3,6 +3,7 @@
 #include "Core/Utf8.h"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace av {
 
@@ -22,6 +23,80 @@ char32_t sanitize(char32_t ch)
     }
     return ch;
 }
+
+// xterm 256-colour palette: a 6x6x6 cube (16-231) and 24 greys (232-255).
+// The palette is coarse in the darks, so each colour is drawn as an ordered
+// (screen-locked 4x4 Bayer) mix of its nearest palette entry and the entry on
+// the other side of it, which keeps hue and brightness on average. A lookup
+// table over 5-bit RGB holds both entries and the mix.
+constexpr int kCubeLevel[6] = {0, 95, 135, 175, 215, 255};
+constexpr int kBayer4[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+
+Color paletteColor(int index);
+
+struct PaletteLut {
+    std::uint8_t near[32768], far[32768], mix[32768];
+    PaletteLut()
+    {
+        Color pal[240];
+        for (int i = 0; i < 240; ++i) pal[i] = paletteColor(16 + i);
+        auto dist = [](int r, int g, int b, Color p) {
+            const int dr = r - p.r, dg = g - p.g, db = b - p.b, rm = (r + p.r) / 2;
+            return (512 + rm) * dr * dr + 1024 * dg * dg + (767 - rm) * db * db; // "redmean" weighting
+        };
+        auto nearest = [&](int r, int g, int b) {
+            int best = 0;
+            long long bestD = -1;
+            for (int i = 0; i < 240; ++i) {
+                const long long d = dist(r, g, b, pal[i]);
+                if (bestD < 0 || d < bestD) { bestD = d; best = i; }
+            }
+            return best;
+        };
+        for (int k = 0; k < 32768; ++k) {
+            const int r = ((k >> 10) & 31) * 255 / 31, g = ((k >> 5) & 31) * 255 / 31, b = (k & 31) * 255 / 31;
+            const int a = nearest(r, g, b);
+            const Color A = pal[a];
+            // The entry on the far side of the colour from A.
+            const int f = nearest(std::clamp(2 * r - A.r, 0, 255), std::clamp(2 * g - A.g, 0, 255), std::clamp(2 * b - A.b, 0, 255));
+            const Color B = pal[f];
+            const int ex = B.r - A.r, ey = B.g - A.g, ez = B.b - A.b;
+            const int len2 = ex * ex + ey * ey + ez * ez;
+            int t = 0;
+            if (len2 > 0) t = std::clamp(((r - A.r) * ex + (g - A.g) * ey + (b - A.b) * ez) * 16 / len2, 0, 8);
+            near[k] = static_cast<std::uint8_t>(a);
+            far[k] = static_cast<std::uint8_t>(f);
+            mix[k] = static_cast<std::uint8_t>(t);
+        }
+    }
+};
+
+int paletteIndex(Color c, int x, int y)
+{
+    static const PaletteLut lut;
+    const int k = ((c.r >> 3) << 10) | ((c.g >> 3) << 5) | (c.b >> 3);
+    const bool useFar = kBayer4[(y & 3) * 4 + (x & 3)] < lut.mix[k];
+    return 16 + (useFar ? lut.far[k] : lut.near[k]);
+}
+
+Color paletteColor(int index)
+{
+    if (index >= 232) {
+        const auto v = static_cast<std::uint8_t>(8 + (index - 232) * 10);
+        return {v, v, v};
+    }
+    const int i = index - 16;
+    return {static_cast<std::uint8_t>(kCubeLevel[i / 36]), static_cast<std::uint8_t>(kCubeLevel[(i / 6) % 6]),
+            static_cast<std::uint8_t>(kCubeLevel[i % 6])};
+}
+
+// The palette entry a resolved (already snapped) colour came from.
+int exactIndex(Color c)
+{
+    if (c.r == c.g && c.g == c.b && c.r >= 8 && c.r <= 238 && (c.r - 8) % 10 == 0) return 232 + (c.r - 8) / 10;
+    auto level = [](int v) { int i = 0; while (i < 5 && kCubeLevel[i] != v) ++i; return i; };
+    return 16 + 36 * level(c.r) + 6 * level(c.g) + level(c.b);
+}
 } // namespace
 
 AnsiPresenter::AnsiPresenter(PresenterOptions options)
@@ -37,7 +112,7 @@ void AnsiPresenter::setOptions(const PresenterOptions& options)
     forceFull_ = true;
 }
 
-AnsiPresenter::Glyph AnsiPresenter::resolve(const Cell& cell) const
+AnsiPresenter::Glyph AnsiPresenter::resolve(const Cell& cell, int x, int y) const
 {
     Glyph g;
     g.ch = sanitize(cell.ch);
@@ -45,6 +120,11 @@ AnsiPresenter::Glyph AnsiPresenter::resolve(const Cell& cell) const
     // Without backgrounds, bg is irrelevant; normalise it so it never
     // registers as a change.
     g.bg = options_.useBackground ? quantize(cell.bg, options_.colorBits) : Color{};
+    if (options_.palette256) {
+        // Snap to the palette so unchanged-looking cells really compare equal.
+        g.fg = paletteColor(paletteIndex(g.fg, x, y));
+        if (options_.useBackground) g.bg = paletteColor(paletteIndex(g.bg, x + 2, y + 1));
+    }
     return g;
 }
 
@@ -110,7 +190,10 @@ void AnsiPresenter::emitGlyph(const Glyph& g)
 
     if (fgChanged || bgChanged) {
         out_ += "\x1b[";
-        if (fgChanged) {
+        if (fgChanged && options_.palette256) {
+            out_ += "38;5;";
+            appendNumber(static_cast<unsigned>(exactIndex(g.fg)));
+        } else if (fgChanged) {
             out_ += "38;2;";
             appendNumber(g.fg.r);
             out_.push_back(';');
@@ -122,7 +205,10 @@ void AnsiPresenter::emitGlyph(const Glyph& g)
             if (fgChanged) {
                 out_.push_back(';');
             }
-            if (options_.useBackground) {
+            if (options_.useBackground && options_.palette256) {
+                out_ += "48;5;";
+                appendNumber(static_cast<unsigned>(exactIndex(g.bg)));
+            } else if (options_.useBackground) {
                 out_ += "48;2;";
                 appendNumber(g.bg.r);
                 out_.push_back(';');
@@ -167,7 +253,7 @@ const std::string& AnsiPresenter::encode(const Framebuffer& frame)
         const int rowStart = y * width;
         for (int x = 0; x < width; ++x) {
             const auto i = static_cast<std::size_t>(rowStart + x);
-            const Glyph g = resolve(cells[i]);
+            const Glyph g = resolve(cells[i], x, y);
             if (!full && g == front_[i]) {
                 continue;
             }

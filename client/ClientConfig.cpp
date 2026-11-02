@@ -56,6 +56,8 @@ void ClientConfig::apply(const std::filesystem::path& path)
     c.maxPointLights = i(r, "maxPointLights", c.maxPointLights);
     c.targetFps = f(r, "targetFps", static_cast<float>(c.targetFps));
     c.colorBits = i(r, "colorBits", c.colorBits);
+    c.colorMode = s(r, "colorMode", c.colorMode);
+    c.autoQuality = b(r, "autoQuality", c.autoQuality);
     c.fogStart = f(r, "fogStart", c.fogStart);
     c.fogEnd = f(r, "fogEnd", c.fogEnd);
 
@@ -112,7 +114,8 @@ bool ClientConfig::save(const std::filesystem::path& path) const
                   "// Grand Theft ASCII - your settings (written by the in-game Settings menu).\n"
                   "{\n"
                   "    \"render\": {\"samplesX\": %d, \"samplesY\": %d, \"cellAspect\": %.2f, \"outlines\": %s, \"ramp\": %s,\n"
-                  "               \"maxPointLights\": %d, \"targetFps\": %.0f, \"colorBits\": %d, \"fogStart\": %.0f, \"fogEnd\": %.0f},\n"
+                  "               \"maxPointLights\": %d, \"targetFps\": %.0f, \"colorBits\": %d, \"colorMode\": %s, \"autoQuality\": %s,\n"
+                  "               \"fogStart\": %.0f, \"fogEnd\": %.0f},\n"
                   "    \"world\": {\"seed\": %u, \"loadRadius\": %d, \"detailDistance\": %.0f, \"startHour\": %.1f, \"dayLengthMinutes\": %.0f},\n"
                   "    \"camera\": {\"distance\": %.1f, \"keyRotateSpeed\": %.2f, \"mouseSensitivity\": %.3f, \"autoRecenterDelay\": %.1f,\n"
                   "               \"invertY\": %s, \"mouseLook\": %s, \"fov\": %d},\n"
@@ -121,7 +124,7 @@ bool ClientConfig::save(const std::filesystem::path& path) const
                   "    \"audio\": {\"volume\": %.2f}\n"
                   "}\n",
                   samplesX, samplesY, static_cast<double>(cellAspect), outlines ? "true" : "false", quoted(ramp).c_str(), maxPointLights,
-                  targetFps, colorBits, static_cast<double>(fogStart), static_cast<double>(fogEnd), seed, loadRadius,
+                  targetFps, colorBits, quoted(colorMode).c_str(), autoQuality ? "true" : "false", static_cast<double>(fogStart), static_cast<double>(fogEnd), seed, loadRadius,
                   static_cast<double>(detailDistance), static_cast<double>(startHour), static_cast<double>(dayLengthMinutes),
                   static_cast<double>(cameraDistance), static_cast<double>(keyRotateSpeed), static_cast<double>(mouseSensitivity),
                   static_cast<double>(autoRecenterDelay), invertY ? "true" : "false", mouseLook ? "true" : "false", fovDegrees, quoted(playerName).c_str(),

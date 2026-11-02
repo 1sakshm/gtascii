@@ -15,6 +15,8 @@ struct ClientConfig {
     int maxPointLights = 16;
     double targetFps = 60.0;
     int colorBits = 8;
+    std::string colorMode = "auto"; // "auto", "truecolor" or "256" (auto: 256 on macOS Terminal.app)
+    bool autoQuality = true;        // lower colour detail / frame rate when the terminal cannot keep up
     float fogStart = 50.0f, fogEnd = 170.0f;
     // world
     std::uint32_t seed = 1986;

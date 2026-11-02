@@ -46,6 +46,8 @@ public:
 
     // Best-effort detection of 24-bit colour support.
     bool supportsTrueColor() const noexcept;
+    // True where the 256-colour palette is the better choice (macOS Terminal.app).
+    bool prefers256Colors() const noexcept;
 
     // Current visible size in character cells.
     TerminalSize size() const;

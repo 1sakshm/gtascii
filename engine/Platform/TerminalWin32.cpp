@@ -220,6 +220,8 @@ bool Terminal::isInteractive() const noexcept
     return impl_->outIsConsole;
 }
 
+bool Terminal::prefers256Colors() const noexcept { return false; }
+
 bool Terminal::supportsTrueColor() const noexcept
 {
     if (const char* ct = std::getenv("COLORTERM")) {

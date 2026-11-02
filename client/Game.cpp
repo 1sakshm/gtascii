@@ -246,8 +246,23 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
 
     PresenterOptions po;
     po.colorBits = cfg.colorBits;
+    po.palette256 = cfg.colorMode == "256" || (cfg.colorMode == "auto" && terminal.prefers256Colors());
     AnsiPresenter presenter(po);
     FrameClock clock(cfg.targetFps);
+    // Auto quality: when frames run late (usually the terminal cannot draw
+    // that much output that fast), step down colour detail, then sampling,
+    // then frame rate; step back up after a long run of easy frames.
+    int quality = 0;
+    double lateFor = 0.0, easyFor = 0.0, upgradeWait = 12.0;
+    auto applyQuality = [&](int level) {
+        PresenterOptions q = po;
+        q.colorBits = std::min(cfg.colorBits, level >= 5 ? 4 : level >= 2 ? 5 : level >= 1 ? 6 : 8);
+        presenter.setOptions(q);
+        RendererSettings r = rs;
+        if (level >= 3) r.samplesX = r.samplesY = 1;
+        renderer.setSettings(r);
+        clock.setTargetFps(level >= 4 ? std::min(cfg.targetFps, 30.0) : cfg.targetFps);
+    };
     InputState input;
     std::vector<InputEvent> events;
     Framebuffer fb;
@@ -978,6 +993,25 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         if (!out.empty()) {
             terminal.write(out);
             recorder.write(out);
+        }
+        if (cfg.autoQuality && terminal.isInteractive() && now > 3.0) {
+            const double budget = 1.0 / std::max(1.0, clock.targetFps());
+            if (dt > budget * 1.3) {
+                lateFor += dt;
+                easyFor = 0.0;
+            } else {
+                lateFor = std::max(0.0, lateFor - dt * 0.5);
+                easyFor += clock.workTimeMs() < budget * 1000.0 * 0.35 ? dt : 0.0;
+            }
+            if (lateFor > 1.5 && quality < 5) {
+                applyQuality(++quality);
+                lateFor = easyFor = 0.0;
+                toasts.push_back({"Auto quality: lowered detail so the game keeps up (Settings > Auto quality)", {150, 145, 175}, 3.0f});
+            } else if (easyFor > upgradeWait && quality > 0) {
+                applyQuality(--quality);
+                easyFor = 0.0;
+                upgradeWait = std::min(120.0, upgradeWait * 2.0); // do not bounce up and down
+            }
         }
         totalBytes += static_cast<double>(out.size());
         totalTris += renderer.stats().trianglesRasterized;

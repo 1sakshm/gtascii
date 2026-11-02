@@ -3,6 +3,7 @@
 // a POSIX system.
 #include "Platform/Terminal.h"
 
+#include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <cstdio>
@@ -11,6 +12,7 @@
 #include <string>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <poll.h>
 #include <unistd.h>
 
 namespace av {
@@ -27,6 +29,13 @@ void writeAll(int fd, std::string_view bytes)
 {
     while (!bytes.empty()) {
         const ssize_t n = ::write(fd, bytes.data(), bytes.size());
+        if (n < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+            // The terminal is behind: wait for it instead of dropping the
+            // rest of the frame (that leaves garbage on screen).
+            pollfd p{fd, POLLOUT, 0};
+            ::poll(&p, 1, 100);
+            continue;
+        }
         if (n <= 0) {
             return;
         }
@@ -95,11 +104,8 @@ Terminal::Terminal(const TerminalOptions& options)
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == 0) {
             impl->termiosChanged = true;
         }
-        impl->originalStdinFlags = fcntl(STDIN_FILENO, F_GETFL);
-        if (impl->originalStdinFlags != -1 &&
-            fcntl(STDIN_FILENO, F_SETFL, impl->originalStdinFlags | O_NONBLOCK) != -1) {
-            impl->stdinFlagsChanged = true;
-        }
+        // No O_NONBLOCK: VMIN = VTIME = 0 already makes read() return at once,
+        // and the flag would also make stdout (the same tty) non-blocking.
     }
 
     struct sigaction sa{};
@@ -142,6 +148,14 @@ bool Terminal::supportsTrueColor() const noexcept
 {
     const char* ct = std::getenv("COLORTERM");
     return ct != nullptr && (std::strcmp(ct, "truecolor") == 0 || std::strcmp(ct, "24bit") == 0);
+}
+
+bool Terminal::prefers256Colors() const noexcept
+{
+    // macOS Terminal.app: 24-bit colour is slow or unsupported there, while
+    // the 256-colour palette is fast and exact.
+    const char* program = std::getenv("TERM_PROGRAM");
+    return program != nullptr && std::strcmp(program, "Apple_Terminal") == 0 && !supportsTrueColor();
 }
 
 TerminalSize Terminal::size() const

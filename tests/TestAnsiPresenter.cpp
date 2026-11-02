@@ -2,6 +2,9 @@
 
 #include "Graphics/AnsiPresenter.h"
 
+#include <array>
+#include <cmath>
+
 namespace {
 
 bool contains(const std::string& haystack, const std::string& needle)
@@ -193,4 +196,68 @@ TEST_CASE("AnsiPresenter: cursor is re-addressed after the last column")
     const std::string out = presenter.encode(fb);
     CHECK(contains(out, "\x1b[1;3H"));
     CHECK(contains(out, "\x1b[2;1H"));
+}
+
+TEST_CASE("AnsiPresenter: 256-colour mode uses palette indices only")
+{
+    av::Framebuffer fb(3, 1);
+    fb.at(0, 0).fg = {255, 0, 0};      // pure red -> cube index 196
+    fb.at(1, 0).fg = {128, 128, 128};  // mid grey -> grey ramp
+    fb.at(2, 0).bg = {0, 0, 255};      // pure blue background -> 21
+    av::PresenterOptions o = noSync();
+    o.palette256 = true;
+    av::AnsiPresenter presenter(o);
+    const std::string out = presenter.encode(fb);
+    CHECK(!contains(out, "38;2;"));
+    CHECK(!contains(out, "48;2;"));
+    CHECK(contains(out, "38;5;196"));
+    CHECK(contains(out, "38;5;244"));
+    CHECK(contains(out, "48;5;21"));
+}
+
+TEST_CASE("AnsiPresenter: 256-colour mode ignores changes the palette cannot show")
+{
+    av::Framebuffer fb(4, 2);
+    av::PresenterOptions o = noSync();
+    o.palette256 = true;
+    av::AnsiPresenter presenter(o);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 4; ++x) fb.at(x, y).fg = {130, 130, 130};
+    presenter.encode(fb);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 4; ++x) fb.at(x, y).fg = {131, 132, 131}; // same grey entry
+    CHECK(presenter.encode(fb).empty());
+}
+
+TEST_CASE("AnsiPresenter: 256-colour dithering keeps the average of a dark colour")
+{
+    av::Framebuffer fb(8, 8);
+    av::PresenterOptions o = noSync();
+    o.palette256 = true;
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) fb.at(x, y).bg = {20, 60, 30}; // dark green
+    av::AnsiPresenter presenter(o);
+    const std::string out = presenter.encode(fb);
+    // Average the palette entries the cells were drawn with (the SGR is only
+    // re-sent on change, so weight each by the cells it covers).
+    auto rgb = [](int n) {
+        static const int L[6] = {0, 95, 135, 175, 215, 255};
+        if (n >= 232) { const int v = 8 + (n - 232) * 10; return std::array<int, 3>{v, v, v}; }
+        const int i = n - 16;
+        return std::array<int, 3>{L[i / 36], L[(i / 6) % 6], L[i % 6]};
+    };
+    double sum[3] = {0, 0, 0};
+    int cells = 0, current = -1;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        if (out.compare(i, 5, "48;5;") == 0) {
+            current = std::stoi(out.substr(i + 5, 3));
+            i += 5;
+            while (i < out.size() && out[i] != 'm') ++i;
+        } else if (out[i] == ' ' && current >= 0) {
+            const auto c = rgb(current);
+            for (int k = 0; k < 3; ++k) sum[k] += c[static_cast<std::size_t>(k)];
+            ++cells;
+        }
+    }
+    CHECK_EQ(cells, 64);
+    const double r = sum[0] / cells, g = sum[1] / cells, b = sum[2] / cells;
+    CHECK(std::abs(r - 20) < 20 && std::abs(g - 60) < 20 && std::abs(b - 30) < 20);
+    CHECK(g > r + 15 && g > b + 15); // still green, not grey
 }

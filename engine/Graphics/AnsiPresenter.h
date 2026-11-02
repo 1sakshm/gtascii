@@ -12,6 +12,7 @@ struct PresenterOptions {
     bool useBackground = true;        // false: leave the terminal's default background
     int colorBits = 8;                // per-channel precision sent to the terminal (1..8)
     bool synchronizedOutput = true;   // wrap frames in DEC mode 2026 to avoid tearing
+    bool palette256 = false;          // xterm 256-colour palette instead of 24-bit colour (shorter, works everywhere)
 };
 
 struct PresentStats {
@@ -56,7 +57,7 @@ private:
         bool operator!=(const Glyph& o) const { return !(*this == o); }
     };
 
-    Glyph resolve(const Cell& cell) const;
+    Glyph resolve(const Cell& cell, int x, int y) const;
     bool matchesCurrentSgr(const Glyph& g) const;
     void moveTo(int x, int y, int rowStart);
     void emitGlyph(const Glyph& g);

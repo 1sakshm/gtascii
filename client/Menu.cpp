@@ -386,6 +386,20 @@ struct MainMenu::Impl {
         v.push_back({"Colour depth", [this] { return "< " + std::to_string(cfg.colorBits) + "-bit >"; },
                      [this, changed](int d) { cfg.colorBits = std::clamp(cfg.colorBits + d, 4, 8); changed(); }, nullptr, nullptr, 0,
                      "Lower = less data for slow terminals or SSH"});
+        v.push_back({"Colours", [this] {
+                         return std::string(cfg.colorMode == "256" ? "< 256-colour palette >" : cfg.colorMode == "truecolor" ? "< 24-bit >" : "< Auto >");
+                     },
+                     [this, changed](int d) {
+                         static const char* modes[] = {"auto", "truecolor", "256"};
+                         int i = 0;
+                         for (int k = 0; k < 3; ++k) if (cfg.colorMode == modes[k]) i = k;
+                         cfg.colorMode = modes[(i + d + 3) % 3];
+                         changed();
+                     },
+                     nullptr, nullptr, 0, "Auto uses the faster 256-colour palette in macOS Terminal.app"});
+        v.push_back({"Auto quality", [this] { return cfg.autoQuality ? std::string("< On >") : std::string("< Off >"); },
+                     [this, changed](int) { cfg.autoQuality = !cfg.autoQuality; changed(); }, nullptr, nullptr, 0,
+                     "Drops colour detail, then frame rate, when the terminal cannot keep up"});
         v.push_back({"Outlines", [this] { return cfg.outlines ? std::string("< On >") : std::string("< Off >"); },
                      [this, changed](int) { cfg.outlines = !cfg.outlines; changed(); }, nullptr, nullptr, 0, ""});
         v.push_back({"View distance", [this] { return "< " + std::to_string(cfg.loadRadius * 64 + 32) + " m >"; },
