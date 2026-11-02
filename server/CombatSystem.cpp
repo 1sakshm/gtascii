@@ -634,6 +634,7 @@ void ServerWorld::setupCombat()
 {
     interiors_ = loadInteriors(dataRoot_ / "assets/maps/interiors.json");
     chunks_->extraColliders = staticExtraColliders(interiors_);
+    for (const AABB& b : alleyColliders()) chunks_->extraColliders.push_back(b);
     auto add = [this](MarkerKind kind, const Vec3& at, InteractionComponent::Action action, int interior, float radius,
                       const std::string& label) {
         const Entity e = reg_.create();

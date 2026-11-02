@@ -45,7 +45,7 @@ private:
     av::MaterialLibrary& materials_;
     std::array<av::Mesh, av::proto::kWeaponCount> weapons_;
     av::Mesh jetpack_, flame_, tracer_, fireball_, smoke_, rocket_, grenade_, cash_, health_, ring_;
-    av::Mesh egg_, ufo_, ufoLights_, ufoBeam_, duck_;
+    av::Mesh egg_, ufo_, ufoLights_, ufoBeam_, duck_, alley_, graffiti_;
     av::MaterialId fire_ = 0, smokeMat_ = 0, pickupGlow_ = 0;
     struct Room {
         av::Mesh mesh;

@@ -369,7 +369,7 @@ IDs. Server entities are built from components:
 ```powershell
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j 8
-ctest --test-dir build --output-on-failure     # 112 tests
+ctest --test-dir build --output-on-failure     # 113 tests
 .\build\client\gtascii.exe
 ```
 
@@ -403,7 +403,7 @@ node scripts/build-npm.mjs bin win32-x64 path/to/binaries   # holds gtascii(.exe
 node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<version>.tgz
 ```
 
-## Tests (112)
+## Tests (113)
 
 - **Engine**: maths, renderer, characters and animation, world generation, streaming, collision, vehicles, navigation and traffic.
 - **Protocol**:

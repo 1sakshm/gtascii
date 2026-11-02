@@ -183,6 +183,54 @@ CombatVisuals::CombatVisuals(MaterialLibrary& materials)
         for (const float x : {-0.75f, 0.75f}) b.addEllipsoid({x, 4.2f, 2.85f}, {0.2f, 0.25f, 0.15f}, 4, 6, eye);
         duck_.computeBounds();
     }
+    {
+        // The alley: brick walls, a dumpster, a lamp, and the name on the wall.
+        MeshBuilder b(alley_);
+        const MaterialId brick = mat(materials, "warehouse_rust", "wall_grey"), bin = mat(materials, "container_green", "metal_dark"),
+                         lamp = mat(materials, "lamp_glow", "neon_cyan");
+        const std::vector<AABB> walls = alleyColliders();
+        for (std::size_t i = 0; i < walls.size(); ++i) {
+            b.addBox(AABB(walls[i].min - kAlleyPosition, walls[i].max - kAlleyPosition), i == 3 ? bin : brick);
+        }
+        b.addBox(AABB({-0.3f, 3.6f, 7.6f}, {0.3f, 3.8f, 8.0f}), lamp);
+        alley_.computeBounds();
+
+        // 5x7 pixel letters, sprayed along the inside of the left wall
+        // (reading left to right when you face it).
+        static const std::pair<char, const char*> font[] = {
+            {'C', ".###.#...##....#....#....#...#.###."}, {'R', "####.#...##...#####.#.#..#..#.#...#"},
+            {'E', "######....#....####.#....#....#####"}, {'A', ".###.#...##...#######...##...##...#"},
+            {'T', "#####..#....#....#....#....#....#.."}, {'O', ".###.#...##...##...##...##...#.###."},
+            {':', "......##...##.......##...##........"}, {'S', ".#####....#.....###.....#....#####."},
+            {'K', "#...##..#.#.#..##...#.#..#..#.#...#"}, {'H', "#...##...##...#######...##...##...#"},
+            {'M', "#...###.###.#.##...##...##...##...#"}, {' ', "..................................."},
+        };
+        MeshBuilder g(graffiti_);
+        const MaterialId paint = mat(materials, "neon_pink", "marker_pink");
+        const float px = 0.12f;
+        const float faceX = -kAlleyHalfWidth + 0.01f;
+        auto line = [&](const char* text, float baseY) {
+            float z = 7.2f; // reads towards -z (the viewer's right)
+            for (const char* c = text; *c; ++c) {
+                const char* rows = nullptr;
+                for (const auto& [ch, bits] : font) {
+                    if (ch == *c) rows = bits;
+                }
+                if (!rows) continue;
+                for (int r = 0; r < 7; ++r) {
+                    for (int col = 0; col < 5; ++col) {
+                        if (rows[r * 5 + col] != '#') continue;
+                        const float zc = z - static_cast<float>(col) * px, y = baseY + static_cast<float>(6 - r) * px;
+                        g.addBox(AABB({faceX, y, zc - px}, {faceX + 0.02f, y + px, zc}), paint);
+                    }
+                }
+                z -= 6.0f * px;
+            }
+        };
+        line("CREATOR:", 2.5f);
+        line(" SAKSHAM", 1.4f);
+        graffiti_.computeBounds();
+    }
 }
 
 void CombatVisuals::drawHeld(Renderer& renderer, const Mat4& world, const std::vector<Mat4>& joints, int weapon) const
@@ -283,6 +331,10 @@ void CombatVisuals::drawSetPieces(Renderer& renderer, const Vec3& camera, float 
         if (std::fmod(time * 2.0f, 1.0f) < 0.7f) renderer.drawMesh(ufoLights_, m);
         const bool night = hour < 6.0f || hour > 19.5f;
         if (night) renderer.drawMesh(ufoBeam_, Mat4::translation(kUfoPosition + bob));
+    }
+    if (distance(camera, kAlleyPosition) < 120.0f) {
+        renderer.drawMesh(alley_, Mat4::translation(kAlleyPosition));
+        renderer.drawMesh(graffiti_, Mat4::translation(kAlleyPosition));
     }
     if (distance(camera, kDuckPosition) < 250.0f) {
         const Mat4 m = Mat4::translation(kDuckPosition + Vec3{0.0f, -0.3f + 0.15f * std::sin(time * 1.3f), 0.0f}) *

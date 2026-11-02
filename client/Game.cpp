@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include "Interiors.h"
+#include "EasterEggs.h"
 #include "Weapons.h"
 
 #include "GameHud.h"
@@ -210,6 +211,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     CharacterAnimation myAnim;
     const std::vector<InteriorDef> interiors = loadInteriors(root / "assets/maps/interiors.json");
     world.extraColliders = staticExtraColliders(interiors);
+    for (const AABB& b : alleyColliders()) world.extraColliders.push_back(b);
+    bool alleyFound = false;
     CombatVisuals combat(materials);
     combat.buildInteriors(interiors);
     remote.combat = &combat;
@@ -781,6 +784,17 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             }
         }
         lastEffectSound = now;
+        if (!alleyFound) {
+            const Vec3 p = me.position() - kAlleyPosition;
+            if (std::fabs(p.x) < kAlleyHalfWidth && p.z > 2.0f && p.z < kAlleyLength && p.y < 4.0f) {
+                alleyFound = true;
+                bannerText = "creator: saksham";
+                bannerColor = {255, 80, 190};
+                bannerTimer = 5.0f;
+                toasts.push_back({kAlleyMessage, {255, 120, 200}, 6.0f});
+                audio.play(Sound::Pickup, 0.4f, 0.8f);
+            }
+        }
         const InteriorDef* inside = findInterior(interiors, me.position());
 
         // ---- render ----

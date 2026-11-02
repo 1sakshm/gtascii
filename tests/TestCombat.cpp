@@ -278,3 +278,14 @@ TEST_CASE("Mouse look: plain mouse movement (no button) is reported as motion")
     input.beginFrame(0.02);
     CHECK_EQ(input.motionDx(), 0);
 }
+
+TEST_CASE("Easter eggs: the creator's alley is clear to walk into")
+{
+    Arena a;
+    // Walk from the entrance to the graffiti: nothing generated may block the way.
+    a.place(kAlleyPosition + Vec3{0.0f, 0.0f, -2.0f});
+    a.hold(0, 0.3f);
+    a.hold(Buttons::Run, 2.5f, 0, 0.0f, {0.0f, 0.0f, 1.0f});
+    CHECK(a.me().body.motor.position.z > kAlleyPosition.z + 5.0f);
+    CHECK(std::fabs(a.me().body.motor.position.x - kAlleyPosition.x) < kAlleyHalfWidth);
+}
