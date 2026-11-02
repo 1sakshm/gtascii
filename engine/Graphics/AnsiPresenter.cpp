@@ -71,11 +71,11 @@ struct PaletteLut {
     }
 };
 
-int paletteIndex(Color c, int x, int y)
+int paletteIndex(Color c, int x, int y, bool dither)
 {
     static const PaletteLut lut;
     const int k = ((c.r >> 3) << 10) | ((c.g >> 3) << 5) | (c.b >> 3);
-    const bool useFar = kBayer4[(y & 3) * 4 + (x & 3)] < lut.mix[k];
+    const bool useFar = dither && kBayer4[(y & 3) * 4 + (x & 3)] < lut.mix[k];
     return 16 + (useFar ? lut.far[k] : lut.near[k]);
 }
 
@@ -122,8 +122,8 @@ AnsiPresenter::Glyph AnsiPresenter::resolve(const Cell& cell, int x, int y) cons
     g.bg = options_.useBackground ? quantize(cell.bg, options_.colorBits) : Color{};
     if (options_.palette256) {
         // Snap to the palette so unchanged-looking cells really compare equal.
-        g.fg = paletteColor(paletteIndex(g.fg, x, y));
-        if (options_.useBackground) g.bg = paletteColor(paletteIndex(g.bg, x + 2, y + 1));
+        g.fg = paletteColor(paletteIndex(g.fg, x, y, options_.dither));
+        if (options_.useBackground) g.bg = paletteColor(paletteIndex(g.bg, x + 2, y + 1, options_.dither));
     }
     return g;
 }
@@ -249,7 +249,10 @@ const std::string& AnsiPresenter::encode(const Framebuffer& frame)
     bool begun = false;
     const auto& cells = frame.cells();
 
+    const bool interlaced = options_.interlace && !full;
+    field_ ^= 1;
     for (int y = 0; y < height; ++y) {
+        if (interlaced && (y & 1) != field_) continue;
         const int rowStart = y * width;
         for (int x = 0; x < width; ++x) {
             const auto i = static_cast<std::size_t>(rowStart + x);

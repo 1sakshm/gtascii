@@ -13,6 +13,8 @@ struct PresenterOptions {
     int colorBits = 8;                // per-channel precision sent to the terminal (1..8)
     bool synchronizedOutput = true;   // wrap frames in DEC mode 2026 to avoid tearing
     bool palette256 = false;          // xterm 256-colour palette instead of 24-bit colour (shorter, works everywhere)
+    bool dither = true;               // palette mode: mix two nearby entries in a 4x4 pattern for smoother shades
+    bool interlace = false;           // update even rows one frame, odd rows the next (half the output per frame)
 };
 
 struct PresentStats {
@@ -68,6 +70,7 @@ private:
     int frontWidth_ = 0;
     int frontHeight_ = 0;
     bool forceFull_ = true;
+    int field_ = 0; // interlace: which rows (0 even, 1 odd) this frame updates
 
     // Terminal state tracking during encoding.
     int cursorX_ = 0;

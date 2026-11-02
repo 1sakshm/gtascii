@@ -399,7 +399,16 @@ struct MainMenu::Impl {
                      nullptr, nullptr, 0, "Auto uses the faster 256-colour palette in macOS Terminal.app"});
         v.push_back({"Auto quality", [this] { return cfg.autoQuality ? std::string("< On >") : std::string("< Off >"); },
                      [this, changed](int) { cfg.autoQuality = !cfg.autoQuality; changed(); }, nullptr, nullptr, 0,
-                     "Drops colour detail, then frame rate, when the terminal cannot keep up"});
+                     "Trades detail for frame rate when the terminal cannot keep up"});
+        v.push_back({"Dithering", [this] { return cfg.dither ? std::string("< On >") : std::string("< Off >"); },
+                     [this, changed](int) { cfg.dither = !cfg.dither; changed(); }, nullptr, nullptr, 0,
+                     "256 colours: smoother shades. Off = faster, especially in tmux"});
+        v.push_back({"Interlace", [this] { return cfg.interlace ? std::string("< On >") : std::string("< Off >"); },
+                     [this, changed](int) { cfg.interlace = !cfg.interlace; changed(); }, nullptr, nullptr, 0,
+                     "Redraws every other row each frame: about twice the frame rate on slow terminals"});
+        v.push_back({"Pixel width", [this] { return cfg.pixelWidth == 1 ? std::string("< Sharp >") : "< " + std::to_string(cfg.pixelWidth) + " cells >"; },
+                     [this, changed](int d) { cfg.pixelWidth = std::clamp(cfg.pixelWidth + d, 1, 4); changed(); }, nullptr, nullptr, 0,
+                     "Wider pixels = blockier picture, higher frame rate"});
         v.push_back({"Outlines", [this] { return cfg.outlines ? std::string("< On >") : std::string("< Off >"); },
                      [this, changed](int) { cfg.outlines = !cfg.outlines; changed(); }, nullptr, nullptr, 0, ""});
         v.push_back({"View distance", [this] { return "< " + std::to_string(cfg.loadRadius * 64 + 32) + " m >"; },

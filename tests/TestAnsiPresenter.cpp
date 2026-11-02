@@ -261,3 +261,34 @@ TEST_CASE("AnsiPresenter: 256-colour dithering keeps the average of a dark colou
     CHECK(std::abs(r - 20) < 20 && std::abs(g - 60) < 20 && std::abs(b - 30) < 20);
     CHECK(g > r + 15 && g > b + 15); // still green, not grey
 }
+
+TEST_CASE("AnsiPresenter: 256-colour mode without dithering uses one entry per colour")
+{
+    av::Framebuffer fb(8, 8);
+    av::PresenterOptions o = noSync();
+    o.palette256 = true;
+    o.dither = false;
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) fb.at(x, y).bg = {20, 60, 30};
+    av::AnsiPresenter presenter(o);
+    const std::string out = presenter.encode(fb);
+    std::size_t sgrs = 0;
+    for (std::size_t i = out.find("48;5;"); i != std::string::npos; i = out.find("48;5;", i + 1)) ++sgrs;
+    CHECK_EQ(sgrs, 1u); // the colour is set once and every cell reuses it
+}
+
+TEST_CASE("AnsiPresenter: interlace updates even rows, then odd rows")
+{
+    av::Framebuffer fb(3, 4);
+    av::PresenterOptions o = noSync();
+    o.interlace = true;
+    av::AnsiPresenter presenter(o);
+    presenter.encode(fb); // first frame is always complete
+    for (int y = 0; y < 4; ++y) for (int x = 0; x < 3; ++x) fb.at(x, y).ch = U'#';
+    presenter.encode(fb);
+    const std::size_t first = presenter.lastStats().cellsChanged;
+    presenter.encode(fb);
+    const std::size_t second = presenter.lastStats().cellsChanged;
+    CHECK_EQ(first, 6u);  // half the rows
+    CHECK_EQ(second, 6u); // the other half
+    CHECK(presenter.encode(fb).empty()); // now everything is up to date
+}

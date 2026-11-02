@@ -48,6 +48,8 @@ public:
     bool supportsTrueColor() const noexcept;
     // True where the 256-colour palette is the better choice (macOS Terminal.app).
     bool prefers256Colors() const noexcept;
+    // True inside tmux or GNU screen, which re-draw all our output themselves.
+    bool insideMultiplexer() const noexcept;
 
     // Current visible size in character cells.
     TerminalSize size() const;

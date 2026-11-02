@@ -247,22 +247,36 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     PresenterOptions po;
     po.colorBits = cfg.colorBits;
     po.palette256 = cfg.colorMode == "256" || (cfg.colorMode == "auto" && terminal.prefers256Colors());
+    po.dither = cfg.dither;
+    po.interlace = cfg.interlace;
     AnsiPresenter presenter(po);
     FrameClock clock(cfg.targetFps);
-    // Auto quality: when frames run late (usually the terminal cannot draw
-    // that much output that fast), step down colour detail, then sampling,
-    // then frame rate; step back up after a long run of easy frames.
-    int quality = 0;
+    // Auto quality: when frames run late (usually the terminal cannot take
+    // that much output that fast), give up detail for frame rate, cheapest
+    // looking change first; step back up after a long run of easy frames.
+    // It never caps the frame rate: a lower cap only makes a slow terminal slower.
+    // Inside tmux/screen, which re-draw everything we send, start two steps down.
+    constexpr int kLowestQuality = 6;
+    int quality = cfg.autoQuality && terminal.insideMultiplexer() ? 2 : 0;
     double lateFor = 0.0, easyFor = 0.0, upgradeWait = 12.0;
+    bool zoomTipShown = false;
+    // The 3D view can be drawn with wide pixels (each one fills `pixel`
+    // cells across): neighbouring cells then match and cost little to send.
+    int pixel = 1;
+    Framebuffer view;
     auto applyQuality = [&](int level) {
         PresenterOptions q = po;
-        q.colorBits = std::min(cfg.colorBits, level >= 5 ? 4 : level >= 2 ? 5 : level >= 1 ? 6 : 8);
+        if (level >= 1) q.dither = false;
+        if (level >= 2) q.interlace = true;
+        q.colorBits = std::min(cfg.colorBits, level >= 6 ? 4 : level >= 4 ? 5 : level >= 1 ? 6 : 8);
         presenter.setOptions(q);
+        pixel = std::max(cfg.pixelWidth, level >= 6 ? 4 : level >= 5 ? 3 : level >= 3 ? 2 : 1);
         RendererSettings r = rs;
-        if (level >= 3) r.samplesX = r.samplesY = 1;
+        if (level >= 4) r.samplesX = r.samplesY = 1;
+        r.cellAspect = rs.cellAspect / static_cast<float>(pixel);
         renderer.setSettings(r);
-        clock.setTargetFps(level >= 4 ? std::min(cfg.targetFps, 30.0) : cfg.targetFps);
     };
+    applyQuality(quality);
     InputState input;
     std::vector<InputEvent> events;
     Framebuffer fb;
@@ -481,7 +495,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             if (input.pressed(U'g')) pendingEdges |= Buttons::Wave;
             if (input.pressed(U'o')) {
                 rs.outlines = !rs.outlines;
-                renderer.setSettings(rs);
+                applyQuality(quality);
             }
             if (input.pressed(Key::F9)) {
                 if (recorder.active()) {
@@ -844,7 +858,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         }
 
         const TerminalSize ts = terminal.size();
-        renderer.beginFrame(ts.cols, ts.rows, cam, light);
+        renderer.beginFrame((ts.cols + pixel - 1) / pixel, ts.rows, cam, light);
         combat.drawInteriors(renderer, cam.position);
         if (!inside) combat.drawSetPieces(renderer, cam.position, static_cast<float>(now), hour);
         for (const auto& [coord, chunk] : world.chunks()) {
@@ -878,7 +892,15 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         if (hasWaypoint) {
             remote.drawMarker(renderer, waypoint, MarkerKind::Objective, static_cast<float>(now));
         }
-        renderer.resolve(fb);
+        if (pixel == 1) {
+            renderer.resolve(fb);
+        } else {
+            renderer.resolve(view);
+            if (fb.width() != ts.cols || fb.height() != ts.rows) fb.resize(ts.cols, ts.rows);
+            for (int y = 0; y < ts.rows; ++y) {
+                for (int x = 0; x < ts.cols; ++x) fb.at(x, y) = view.at(x / pixel, y);
+            }
+        }
 
         // Name tags: friends cyan, cops blue, robbers red.
         for (const auto& [id, e] : remote.entities()) {
@@ -1003,10 +1025,13 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                 lateFor = std::max(0.0, lateFor - dt * 0.5);
                 easyFor += clock.workTimeMs() < budget * 1000.0 * 0.35 ? dt : 0.0;
             }
-            if (lateFor > 1.5 && quality < 5) {
+            if (lateFor > 1.5 && quality < kLowestQuality) {
                 applyQuality(++quality);
                 lateFor = easyFor = 0.0;
                 toasts.push_back({"Auto quality: lowered detail so the game keeps up (Settings > Auto quality)", {150, 145, 175}, 3.0f});
+            } else if (lateFor > 1.5 && !zoomTipShown) {
+                zoomTipShown = true;
+                toasts.push_back({"Still slow: zoom in (Cmd + or Ctrl +). Bigger text = fewer cells = faster", {150, 145, 175}, 6.0f});
             } else if (easyFor > upgradeWait && quality > 0) {
                 applyQuality(--quality);
                 easyFor = 0.0;

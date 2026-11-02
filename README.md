@@ -24,7 +24,7 @@ The package ships prebuilt native binaries for:
 
 **Maximise the terminal window** (or shrink the font), because every cell is a pixel.
 
-### If it runs slowly (macOS especially)
+### If it runs slowly (macOS, tmux)
 
 The game draws every frame as text, so a big window can mean a lot of output
 for the terminal to keep up with. The game itself rarely is the bottleneck.
@@ -32,11 +32,17 @@ for the terminal to keep up with. The game itself rarely is the bottleneck.
 - **Use a fast terminal.** Ghostty, kitty, WezTerm, Alacritty and iTerm2 keep
   up well. macOS Terminal.app is the slowest. The game detects it and switches
   to the 256-colour palette, which needs about a sixth of the data.
-- **Auto quality** (on by default) lowers colour detail, then sampling, then
-  the frame rate when frames run late. You'll see a short notice when it does.
-- In **Settings** you can also lower **Colour depth**, set **Colours** to the
-  256-colour palette, or cap the **Frame rate** at 30.
-- A smaller window or a slightly bigger font also helps a lot.
+- **tmux and screen** re-draw everything the game sends, which roughly halves
+  the frame rate. The game detects them and starts with dithering off and
+  interlacing on.
+- **Auto quality** (on by default) trades detail for frame rate when frames run
+  late: dithering off, interlace, wider pixels, less sampling, then the widest
+  pixels. It steps back up when there is room. You'll see a short notice each time.
+- In **Settings** you can set these yourself: **Colours**, **Dithering**,
+  **Interlace** (every other row per frame, about twice the frame rate) and
+  **Pixel width** (blockier 3D view, faster).
+- **Zoom in** (Cmd + or Ctrl +). Bigger text means fewer cells to draw, and the
+  frame rate rises about as fast as the cell count drops.
 
 ## Main menu
 
@@ -417,7 +423,7 @@ node scripts/build-npm.mjs bin win32-x64 path/to/binaries   # holds gtascii(.exe
 node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<version>.tgz
 ```
 
-## Tests (116)
+## Tests (118)
 
 - **Engine**: maths, renderer, characters and animation, world generation, streaming, collision, vehicles, navigation and traffic.
 - **Protocol**:

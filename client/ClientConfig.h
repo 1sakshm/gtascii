@@ -16,7 +16,10 @@ struct ClientConfig {
     double targetFps = 60.0;
     int colorBits = 8;
     std::string colorMode = "auto"; // "auto", "truecolor" or "256" (auto: 256 on macOS Terminal.app)
-    bool autoQuality = true;        // lower colour detail / frame rate when the terminal cannot keep up
+    bool autoQuality = true;        // trade detail for frame rate when the terminal cannot keep up
+    bool dither = true;             // 256-colour mode: blend two palette colours for smoother shades
+    bool interlace = false;         // redraw even rows, then odd rows: half the output per frame
+    int pixelWidth = 1;             // 3D view drawn with pixels this many cells wide (1..4)
     float fogStart = 50.0f, fogEnd = 170.0f;
     // world
     std::uint32_t seed = 1986;

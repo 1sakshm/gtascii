@@ -154,8 +154,20 @@ bool Terminal::prefers256Colors() const noexcept
 {
     // macOS Terminal.app: 24-bit colour is slow or unsupported there, while
     // the 256-colour palette is fast and exact.
+    // tmux and screen redraw everything they receive, so short output matters
+    // most there (and tmux turns 24-bit colour into 256 by default anyway).
     const char* program = std::getenv("TERM_PROGRAM");
-    return program != nullptr && std::strcmp(program, "Apple_Terminal") == 0 && !supportsTrueColor();
+    return insideMultiplexer() ||
+           (program != nullptr && std::strcmp(program, "Apple_Terminal") == 0 && !supportsTrueColor());
+}
+
+bool Terminal::insideMultiplexer() const noexcept
+{
+    const char* tmux = std::getenv("TMUX");
+    const char* sty = std::getenv("STY"); // GNU screen
+    const char* term = std::getenv("TERM");
+    return (tmux != nullptr && *tmux) || (sty != nullptr && *sty) ||
+           (term != nullptr && (std::strncmp(term, "screen", 6) == 0 || std::strncmp(term, "tmux", 4) == 0));
 }
 
 TerminalSize Terminal::size() const

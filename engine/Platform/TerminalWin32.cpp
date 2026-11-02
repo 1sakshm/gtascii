@@ -222,6 +222,8 @@ bool Terminal::isInteractive() const noexcept
 
 bool Terminal::prefers256Colors() const noexcept { return false; }
 
+bool Terminal::insideMultiplexer() const noexcept { return false; }
+
 bool Terminal::supportsTrueColor() const noexcept
 {
     if (const char* ct = std::getenv("COLORTERM")) {
