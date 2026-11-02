@@ -62,7 +62,9 @@ Both modes share these keys:
 
 | Key | Action |
 |---|---|
-| Arrows / left-drag | orbit the camera |
+| Mouse / trackpad | look around: just move it, no clicking. Rest the pointer near the left or right edge to keep turning. Turn this off in Settings, under *Mouse look* |
+| Left click / right click | shoot / next weapon |
+| Arrow keys | orbit the camera (optional) |
 | `+` / `-` / wheel | zoom |
 | `V` | recenter the camera |
 | `P` | phone: jobs with GPS, start a race or cops & robbers, radio, recording, stats |
@@ -153,15 +155,25 @@ Glowing orange rings mark the doors. Press `E` to go in and `E` at the ring insi
 You can't go inside while the police are after you. Door positions are in
 `assets/maps/interiors.json`.
 
+### Secrets
+
+Grand Theft ASCII hides golden eggs around the map, and some odd things you'll
+only notice if you go looking. The phone's *Stats* screen counts the eggs
+you've found, and finding all of them earns a reward. No spoilers here.
+
 ### Sound
 
 The sound is synthesised live; there are no audio files:
 
-- footsteps, punches, crashes and pickups
-- engine pitch that follows your speed
-- police sirens
-- mission and race stingers
-- a procedural synthwave radio in cars
+- **Footsteps**: soft and a little different every step.
+- **Punches, gunfire, explosions and crashes**: filtered, so they stay easy on the ears.
+- **Engine**: a four-cylinder rumble whose revs climb through the gears.
+- **Helicopters and the jetpack**: a rotor chop and a jetpack hiss.
+- **Police sirens**.
+- **Mission and race stingers**.
+- **Radio**: a procedural synthwave station in cars.
+
+Everything goes through a gentle low-pass filter and a short room echo.
 
 Set the volume in Settings, or turn sound off with `--no-audio`.
 
@@ -357,7 +369,7 @@ IDs. Server entities are built from components:
 ```powershell
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j 8
-ctest --test-dir build --output-on-failure     # 110 tests
+ctest --test-dir build --output-on-failure     # 112 tests
 .\build\client\gtascii.exe
 ```
 
@@ -391,7 +403,7 @@ node scripts/build-npm.mjs bin win32-x64 path/to/binaries   # holds gtascii(.exe
 node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<version>.tgz
 ```
 
-## Tests (110)
+## Tests (112)
 
 - **Engine**: maths, renderer, characters and animation, world generation, streaming, collision, vehicles, navigation and traffic.
 - **Protocol**:

@@ -72,6 +72,7 @@ void ClientConfig::apply(const std::filesystem::path& path)
     c.mouseSensitivity = f(cam, "mouseSensitivity", c.mouseSensitivity);
     c.autoRecenterDelay = f(cam, "autoRecenterDelay", c.autoRecenterDelay);
     c.invertY = b(cam, "invertY", c.invertY);
+    c.mouseLook = b(cam, "mouseLook", c.mouseLook);
 
     const av::JsonValue* p = doc.find("player");
     c.playerName = s(p, "name", c.playerName);
@@ -114,7 +115,7 @@ bool ClientConfig::save(const std::filesystem::path& path) const
                   "               \"maxPointLights\": %d, \"targetFps\": %.0f, \"colorBits\": %d, \"fogStart\": %.0f, \"fogEnd\": %.0f},\n"
                   "    \"world\": {\"seed\": %u, \"loadRadius\": %d, \"detailDistance\": %.0f, \"startHour\": %.1f, \"dayLengthMinutes\": %.0f},\n"
                   "    \"camera\": {\"distance\": %.1f, \"keyRotateSpeed\": %.2f, \"mouseSensitivity\": %.3f, \"autoRecenterDelay\": %.1f,\n"
-                  "               \"invertY\": %s, \"fov\": %d},\n"
+                  "               \"invertY\": %s, \"mouseLook\": %s, \"fov\": %d},\n"
                   "    \"player\": {\"name\": %s, \"password\": %s, \"appearance\": %u},\n"
                   "    \"network\": {\"server\": %s, \"hostPort\": %u, \"lobby\": %s},\n"
                   "    \"audio\": {\"volume\": %.2f}\n"
@@ -123,7 +124,7 @@ bool ClientConfig::save(const std::filesystem::path& path) const
                   targetFps, colorBits, static_cast<double>(fogStart), static_cast<double>(fogEnd), seed, loadRadius,
                   static_cast<double>(detailDistance), static_cast<double>(startHour), static_cast<double>(dayLengthMinutes),
                   static_cast<double>(cameraDistance), static_cast<double>(keyRotateSpeed), static_cast<double>(mouseSensitivity),
-                  static_cast<double>(autoRecenterDelay), invertY ? "true" : "false", fovDegrees, quoted(playerName).c_str(),
+                  static_cast<double>(autoRecenterDelay), invertY ? "true" : "false", mouseLook ? "true" : "false", fovDegrees, quoted(playerName).c_str(),
                   quoted(password).c_str(), appearanceSeed, quoted(server).c_str(), static_cast<unsigned>(hostPort),
                   quoted(lobby).c_str(), static_cast<double>(volume));
     return av::writeTextFileAtomic(path, buf);

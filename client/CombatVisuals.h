@@ -32,6 +32,10 @@ public:
     void drawPickup(av::Renderer& renderer, const av::proto::EntityState& s, float time) const;
     void effectLight(const av::proto::EntityState& s, float age, std::vector<av::PointLight>& out) const;
 
+    // Easter-egg set pieces: the UFO over the sea and the giant duck in the canal.
+    void drawSetPieces(av::Renderer& renderer, const av::Vec3& camera, float time, float hour) const;
+    void setPieceLights(const av::Vec3& camera, float time, float hour, std::vector<av::PointLight>& out) const;
+
     void buildInteriors(const std::vector<av::proto::InteriorDef>& interiors);
     void drawInteriors(av::Renderer& renderer, const av::Vec3& camera) const;
     // Lights of the room the camera is in (if any).
@@ -41,6 +45,7 @@ private:
     av::MaterialLibrary& materials_;
     std::array<av::Mesh, av::proto::kWeaponCount> weapons_;
     av::Mesh jetpack_, flame_, tracer_, fireball_, smoke_, rocket_, grenade_, cash_, health_, ring_;
+    av::Mesh egg_, ufo_, ufoLights_, ufoBeam_, duck_;
     av::MaterialId fire_ = 0, smokeMat_ = 0, pickupGlow_ = 0;
     struct Room {
         av::Mesh mesh;

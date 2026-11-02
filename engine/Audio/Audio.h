@@ -9,7 +9,7 @@ enum class Sound {
     Crash, Chat, Arrested, Money, Door, Countdown, Go, Gunshot, Explosion, Swoosh, Count
 };
 
-enum class Loop { Engine, Siren, Radio, Count };
+enum class Loop { Engine, Siren, Radio, Rotor, Jet, Count };
 
 // Tiny synthesiser + mixer. Every sound is generated in code at start-up
 // (no asset files); a background thread mixes one-shots and looping voices

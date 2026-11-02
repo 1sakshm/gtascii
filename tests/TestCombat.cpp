@@ -3,7 +3,10 @@
 #include "TestHarness.h"
 
 #include "ServerWorld.h"
+#include "EasterEggs.h"
 #include "Weapons.h"
+
+#include "Platform/InputState.h"
 
 #include <cmath>
 #include <filesystem>
@@ -229,4 +232,49 @@ TEST_CASE("Interiors: the casino door takes you inside, the slots take your mone
     CHECK(a.me().body.motor.position.y < 5.0f);
     const Vec3 out = a.me().body.motor.position;
     CHECK(std::hypot(out.x - door.x, out.z - door.z) < 4.0f);
+}
+
+TEST_CASE("Easter eggs: eight golden eggs, one on Vice Tower, and finding them all pays out")
+{
+    Arena a;
+    std::vector<Vec3> eggs;
+    a.reg().each<EggComponent>([&](Entity e, EggComponent&) { eggs.push_back(a.reg().get<TransformComponent>(e)->position); });
+    CHECK_EQ(static_cast<int>(eggs.size()), kGoldenEggCount);
+    bool tower = false;
+    for (const Vec3& p : eggs) tower = tower || p.y > 100.0f; // the top of Vice Tower
+    CHECK(tower);
+    const int money = a.world->buildStatus(a.player).money;
+    for (const Vec3& p : eggs) {
+        a.place(p - Vec3{0.0f, 0.3f, 0.0f});
+        a.me().body.jetpack = true; // hover there instead of falling
+        a.hold(0, 0.1f);
+    }
+    const PlayerStatus st = a.world->buildStatus(a.player);
+    CHECK_EQ(static_cast<int>(st.eggsFound), kGoldenEggCount);
+    CHECK(st.money >= money + 100000);
+    bool goldCar = false;
+    for (const auto& [model, paint] : a.pc().profile->ownedVehicles) goldCar = goldCar || paint == kGoldPaint;
+    CHECK(goldCar);
+}
+
+TEST_CASE("Mouse look: plain mouse movement (no button) is reported as motion")
+{
+    InputState input;
+    input.beginFrame(0.0);
+    auto move = [&](int x, int y, double t) {
+        InputEvent ev;
+        ev.type = InputEvent::Type::Mouse;
+        ev.mouse.x = x;
+        ev.mouse.y = y;
+        input.handle(ev, t);
+    };
+    move(50, 20, 0.0);
+    move(56, 18, 0.01);
+    CHECK_EQ(input.motionDx(), 6);
+    CHECK_EQ(input.motionDy(), -2);
+    CHECK_EQ(input.dragDx(), 0); // no button: not a drag
+    CHECK(input.mouseRecentlyMoved(0.5, 2.0));
+    CHECK(!input.mouseRecentlyMoved(5.0, 2.0));
+    input.beginFrame(0.02);
+    CHECK_EQ(input.motionDx(), 0);
 }

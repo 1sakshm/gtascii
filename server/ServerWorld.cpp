@@ -1,5 +1,6 @@
 #include "ServerWorld.h"
 
+#include "EasterEggs.h"
 #include "Weapons.h"
 
 #include "Core/FileUtil.h"
@@ -567,6 +568,19 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         st.subtype = dc.type;
         items.push_back({d * 1.1f, st});
     });
+    reg.each<EggComponent>([&](Entity e, EggComponent& egg) {
+        const TransformComponent* t = reg_.get<TransformComponent>(e);
+        float d;
+        if (!t || (pc->profile && pc->profile->pickups.count(kGoldenEggIdBase + egg.index)) || !inRange(t->position, d)) {
+            return;
+        }
+        EntityState st;
+        st.netId = netIdOf(e);
+        st.kind = EntityKind::Pickup;
+        st.position = t->position;
+        st.subtype = PickupType::GoldenEgg;
+        items.push_back({d * 1.2f, st});
+    });
     reg.each<EffectComponent>([&](Entity e, EffectComponent& fx) {
         const TransformComponent* t = reg_.get<TransformComponent>(e);
         float d;
@@ -619,12 +633,15 @@ PlayerStatus ServerWorld::buildStatus(Entity player) const
     }
     st.wanted = static_cast<std::uint8_t>(p->wanted);
     st.prompt = p->prompt;
-    st.pickupsFound = static_cast<std::uint16_t>(p->profile->pickups.size());
+    st.pickupsFound = static_cast<std::uint16_t>(std::count_if(p->profile->pickups.begin(), p->profile->pickups.end(),
+                                                                [](int id) { return id < kGoldenEggIdBase; }));
     st.missionsDone = static_cast<std::uint16_t>(p->profile->missionsDone.size());
     st.missionsTotal = static_cast<std::uint16_t>(missions_.size());
     st.playSeconds = static_cast<std::uint32_t>(p->profile->playSeconds);
     st.frozen = p->frozen ? 1 : 0;
     st.god = p->god ? 1 : 0;
+    st.eggsTotal = static_cast<std::uint8_t>(reg_.count<EggComponent>());
+    for (int k = 0; k < kGoldenEggCount; ++k) st.eggsFound = static_cast<std::uint8_t>(st.eggsFound + (p->profile->pickups.count(kGoldenEggIdBase + k) ? 1 : 0));
     st.weaponsOwned = 1;
     for (int w = 1; w < kWeaponCount; ++w) {
         if (ammoOf(player, w) > 0) st.weaponsOwned = static_cast<std::uint16_t>(st.weaponsOwned | (1u << w));

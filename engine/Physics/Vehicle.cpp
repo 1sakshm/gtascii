@@ -47,7 +47,7 @@ void stepHelicopter(VehicleState& s, const VehicleSpec& spec, const VehicleContr
     s.speed += clampv(targetSpeed - s.speed, -spec.braking * dt, spec.acceleration * dt);
     float targetVs = in.ascend ? 6.0f : (in.descend ? -5.0f : 0.0f);
     if (lift < 1.0f) targetVs = -12.0f; // not spun up (or wrecked): it falls
-    if (s.position.y > 140.0f) targetVs = std::min(targetVs, 0.0f);
+    if (s.position.y > 165.0f) targetVs = std::min(targetVs, 0.0f); // flight ceiling
     s.verticalSpeed += clampv(targetVs - s.verticalSpeed, -9.0f * dt, 7.0f * dt);
 
     Vec3 next = s.position + s.forward() * (s.speed * dt);

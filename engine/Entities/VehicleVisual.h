@@ -42,7 +42,7 @@ private:
     MaterialId paints_[kCarPaintCount];
     MaterialId policeBlack_, sirenRed_, sirenBlue_, sirenOff_;
     MaterialId glass_, trim_, headlight_, taillight_, tire_, hub_, policeWhite_, cabSign_, cabYellow_;
-    MaterialId heliBody_, rotorMat_;
+    MaterialId heliBody_, rotorMat_, gold_;
 };
 
 } // namespace av

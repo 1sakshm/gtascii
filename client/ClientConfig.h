@@ -28,6 +28,7 @@ struct ClientConfig {
     float mouseSensitivity = 0.035f;
     float autoRecenterDelay = 3.0f;
     bool invertY = false;
+    bool mouseLook = true; // the camera follows the mouse / trackpad (no dragging needed)
     // player
     std::string playerName = "Player";
     std::string password;

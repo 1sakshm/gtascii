@@ -56,7 +56,7 @@ struct Terminal::Impl {
             std::string restore;
             restore += vt::kResetAttributes;
             if (options.enableMouse) {
-                restore += "\x1b[?1006l\x1b[?1002l\x1b[?1000l";
+                restore += "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
             }
             restore += vt::kEnableAutoWrap;
             restore += vt::kShowCursor;
@@ -120,7 +120,7 @@ Terminal::Terminal(const TerminalOptions& options)
     }
     enter += vt::kDisableAutoWrap;
     if (options.enableMouse) {
-        enter += "\x1b[?1000h\x1b[?1002h\x1b[?1006h"; // button + drag reporting, SGR encoding
+        enter += "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h"; // buttons + all movement (mouse look), SGR encoding
     }
     enter += vt::kResetAttributes;
     enter += vt::kClearScreen;
@@ -239,10 +239,11 @@ void Terminal::pollInput(std::vector<InputEvent>& events)
                         ev.mouse.left = impl_->mouseLeft;
                     } else {
                         const int button = b & 3;
+                        const bool motion = (b & 32) != 0;
                         const bool pressed = final == 'M';
-                        if (button == 0) impl_->mouseLeft = pressed;
+                        if (button == 0 && !motion) impl_->mouseLeft = pressed;
                         ev.mouse.left = impl_->mouseLeft;
-                        ev.mouse.middle = button == 1 && pressed;
+                        ev.mouse.middle = button == 1 && pressed && !motion;
                         ev.mouse.right = button == 2 && pressed;
                     }
                     events.push_back(ev);

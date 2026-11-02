@@ -122,6 +122,12 @@ struct DropComponent {
     float respawn = 0.0f;     // permanent spawns: seconds until it is back
 };
 
+// A hidden golden egg (each player can take each one once).
+struct EggComponent {
+    int index = 0;
+    std::string hint;
+};
+
 // Short-lived visuals: tracers and explosions.
 struct EffectComponent {
     av::proto::EffectType type = av::proto::EffectType::Tracer;

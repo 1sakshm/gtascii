@@ -3,6 +3,7 @@
 // club, casino) and helicopter pads.
 #include "ServerWorld.h"
 
+#include "EasterEggs.h"
 #include "Weapons.h"
 
 #include <algorithm>
@@ -333,6 +334,33 @@ void ServerWorld::collectDrops(Entity player)
     CharacterComponent* c = reg_.get<CharacterComponent>(player);
     if (!p || !c || !p->profile || c->mode != CharacterMode::OnFoot) return;
     const Vec3 pos = c->body.motor.position;
+    for (const Entity e : reg_.entitiesWith<EggComponent>()) {
+        const EggComponent* egg = reg_.get<EggComponent>(e);
+        const TransformComponent* t = reg_.get<TransformComponent>(e);
+        if (!egg || !t || p->profile->pickups.count(kGoldenEggIdBase + egg->index) || flat(t->position, pos) > 1.6f ||
+            std::fabs(t->position.y - pos.y - 0.6f) > 2.2f) {
+            continue;
+        }
+        p->profile->pickups.insert(kGoldenEggIdBase + egg->index);
+        int found = 0;
+        for (int k = 0; k < kGoldenEggCount; ++k) found += p->profile->pickups.count(kGoldenEggIdBase + k) ? 1 : 0;
+        const int total = static_cast<int>(reg_.count<EggComponent>());
+        if (found < total) {
+            notify(player, EventKind::Pickup, "GOLDEN EGG " + std::to_string(found) + "/" + std::to_string(total) + " - found " + egg->hint +
+                                                  ". Others hide high up, far out, and where the music is loud.");
+        } else {
+            p->profile->money += 100000;
+            p->profile->ownedVehicles.push_back({static_cast<int>(VehicleModel::Sports), kGoldPaint});
+            const Entity car = spawnVehicle(VehicleModel::Sports, kGoldPaint, openSpot(*chunks_, pos, 2.8f, c->body.yaw), c->body.yaw);
+            if (VehicleComponent* vc = reg_.get<VehicleComponent>(car)) {
+                vc->owner = player;
+                vc->ownerName = p->name;
+            }
+            notify(player, EventKind::MissionPassed, "ALL GOLDEN EGGS! +$100,000 and a solid gold Vortex GT (it's yours, and it waits at your safehouse)", 100000);
+            broadcast(EventKind::Info, p->name + " found every golden egg!");
+        }
+        save();
+    }
     for (const Entity e : reg_.entitiesWith<DropComponent>()) {
         DropComponent* d = reg_.get<DropComponent>(e);
         const TransformComponent* t = reg_.get<TransformComponent>(e);
@@ -659,6 +687,26 @@ void ServerWorld::setupCombat()
     for (const auto& [at, yaw] : helipads_) {
         add(MarkerKind::Helipad, at + Vec3{0.0f, layout_->groundHeight(at.x, at.z), 0.0f}, InteractionComponent::Action::Marker, -1, 0.0f, "Helipad");
         (void)yaw;
+    }
+
+    // Golden eggs. Rooftop ones sit on the tallest thing in their chunk.
+    const std::vector<EggSpot> spots = eggSpots(interiors_);
+    for (std::size_t i = 0; i < spots.size(); ++i) {
+        Vec3 at = spots[i].position;
+        if (spots[i].where == EggSpot::Where::HighestRoof) {
+            const auto chunk = generator_->generate(ChunkCoord{spots[i].chunkX, spots[i].chunkZ});
+            float best = -1.0f;
+            for (const AABB& b : chunk->colliders) {
+                if (b.max.y > best) {
+                    best = b.max.y;
+                    at = {(b.min.x + b.max.x) * 0.5f, b.max.y + 0.25f, (b.min.z + b.max.z) * 0.5f};
+                }
+            }
+        }
+        const Entity e = reg_.create();
+        reg_.add<TransformComponent>(e, {at, 0.0f});
+        reg_.add<EggComponent>(e, {static_cast<int>(i), spots[i].hint});
+        assignNetId(e);
     }
 }
 

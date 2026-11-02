@@ -32,6 +32,15 @@ public:
     int dragDx() const { return dragDx_; }
     int dragDy() const { return dragDy_; }
     int wheel() const { return wheel_; }
+    // Mouse look: movement (cells) this frame with or without a button, the
+    // pointer position, and whether the mouse moved within `seconds`.
+    int motionDx() const { return motionDx_; }
+    int motionDy() const { return motionDy_; }
+    int mouseX() const { return lastMouseX_; }
+    int mouseY() const { return lastMouseY_; }
+    bool mouseRecentlyMoved(double now, double seconds) const { return seenMouse_ && now - lastMouseTime_ < seconds; }
+    bool mouseRight() const { return mouseRight_; }
+    bool focused() const { return focused_; }
     bool mouseLeft() const { return mouseLeft_; }
 
     bool reportsReleases() const { return sawRelease_; }
@@ -51,6 +60,9 @@ private:
     int lastMouseX_ = 0, lastMouseY_ = 0;
     bool mouseLeft_ = false;
     int dragDx_ = 0, dragDy_ = 0, wheel_ = 0;
+    int motionDx_ = 0, motionDy_ = 0;
+    bool seenMouse_ = false, mouseRight_ = false, focused_ = true;
+    double lastMouseTime_ = 0.0;
 };
 
 } // namespace av

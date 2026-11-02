@@ -27,6 +27,7 @@ VehicleVisuals::VehicleVisuals(const MaterialLibrary& lib)
     cabYellow_ = lib.require("car_paint_7");
     heliBody_ = lib.find("heli_body") != kNoMaterial ? lib.find("heli_body") : trim_;
     rotorMat_ = lib.find("rotor") != kNoMaterial ? lib.find("rotor") : trim_;
+    gold_ = lib.find("gold") != kNoMaterial ? lib.find("gold") : paints_[7];
 
     // Wheel: tyre with its axle along X, and a hub cross that shows rotation.
     MeshBuilder wb(wheel_);
@@ -150,6 +151,9 @@ void VehicleVisuals::draw(Renderer& renderer, VehicleModel model, int paint, con
         paintMat = policeBlack_;
     } else if (model == VehicleModel::Cab) {
         paintMat = cabYellow_;
+    }
+    if (paint == 8) {
+        paintMat = gold_; // the golden-egg reward
     }
     if (model == VehicleModel::Helicopter) {
         renderer.drawMesh(m.paint, world, heliBody_);

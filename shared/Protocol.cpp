@@ -61,7 +61,7 @@ bool PlayerStatus::operator==(const PlayerStatus& o) const
            marker == o.marker && markerPosition == o.markerPosition && prompt == o.prompt &&
            pickupsFound == o.pickupsFound && pickupsTotal == o.pickupsTotal && missionsDone == o.missionsDone &&
            frozen == o.frozen && playSeconds / 10 == o.playSeconds / 10 && weapon == o.weapon && ammo == o.ammo &&
-           weaponsOwned == o.weaponsOwned && god == o.god;
+           weaponsOwned == o.weaponsOwned && god == o.god && eggsFound == o.eggsFound && eggsTotal == o.eggsTotal;
 }
 
 std::vector<std::uint8_t> encode(const Hello& m)
@@ -204,6 +204,8 @@ std::vector<std::uint8_t> encode(const PlayerStatus& m)
     w.u16(m.ammo);
     w.u16(m.weaponsOwned);
     w.u8(m.god);
+    w.u8(m.eggsFound);
+    w.u8(m.eggsTotal);
     return w.data();
 }
 
@@ -237,6 +239,8 @@ std::optional<PlayerStatus> decodeStatus(const std::vector<std::uint8_t>& p)
     m.ammo = r.u16();
     m.weaponsOwned = r.u16();
     m.god = r.u8();
+    m.eggsFound = r.u8();
+    m.eggsTotal = r.u8();
     return finish(r, m);
 }
 

@@ -17,7 +17,7 @@ namespace av::proto {
 
 inline constexpr float kInteriorFloorY = 300.0f;
 inline constexpr float kWorldEdgeX = 448.0f;  // out at sea: you cannot swim, drive or fly past this
-inline constexpr float kFlightCeiling = 140.0f;
+inline constexpr float kFlightCeiling = 165.0f; // above Vice Tower (140 m)
 
 enum class InteriorKind : std::uint8_t { Home, Office, Club, Casino };
 

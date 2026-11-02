@@ -398,6 +398,9 @@ struct MainMenu::Impl {
         v.push_back({"Mouse sensitivity", [this] { return "< " + std::to_string(static_cast<int>(std::lround(cfg.mouseSensitivity * 1000.0f))) + " >"; },
                      [this, changed](int d) { cfg.mouseSensitivity = std::clamp(cfg.mouseSensitivity + 0.005f * static_cast<float>(d), 0.005f, 0.1f); changed(); },
                      nullptr, nullptr, 0, ""});
+        v.push_back({"Mouse look", [this] { return cfg.mouseLook ? std::string("< On: move the mouse to look >") : std::string("< Off: drag to look >"); },
+                     [this, changed](int) { cfg.mouseLook = !cfg.mouseLook; changed(); }, nullptr, nullptr, 0,
+                     "Move the mouse or trackpad to turn; rest at the screen edge to keep turning. Click to shoot."});
         v.push_back({"Invert camera Y", [this] { return cfg.invertY ? std::string("< Yes >") : std::string("< No >"); },
                      [this, changed](int) { cfg.invertY = !cfg.invertY; changed(); }, nullptr, nullptr, 0, ""});
         v.push_back({"Volume", [this] { return "< " + std::to_string(static_cast<int>(std::lround(cfg.volume * 100.0f))) + "% >"; },

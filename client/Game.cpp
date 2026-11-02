@@ -215,6 +215,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     remote.combat = &combat;
     int wantWeapon = 0;
     bool execSent = false;
+    bool lastRightClick = false;
+    std::uint32_t stepRng = 0x9E3779B9u;
     float localFireTimer = 0.0f;
     double lastEffectSound = 0.0;
 
@@ -373,6 +375,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             phoneItems.push_back({"Cash: $" + std::to_string(status.money), nullptr});
             phoneItems.push_back({"Missions: " + std::to_string(status.missionsDone) + "/" + std::to_string(status.missionsTotal), nullptr});
             phoneItems.push_back({"Flamingos: " + std::to_string(status.pickupsFound) + "/" + std::to_string(status.pickupsTotal), nullptr});
+            phoneItems.push_back({"Golden eggs: " + std::to_string(status.eggsFound) + "/" + std::to_string(status.eggsTotal) +
+                                      (status.eggsFound == 0 ? "  (rumour has it...)" : ""), nullptr});
             phoneItems.push_back({"Play time: " + std::to_string(mins / 60) + "h " + std::to_string(mins % 60) + "m", nullptr});
             phoneItems.push_back({"Room: " + welcome.roomName + " (" + welcome.roomCode + ")", nullptr});
         } else if (phone == PhoneScreen::Cheats) {
@@ -443,6 +447,19 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                 }
             }
             if (input.pressed(U'j')) net.sendCommand(CommandKind::ToggleJetpack, 0);
+            {
+                const bool right = input.mouseRight();
+                if (right && !lastRightClick) { // right click: next weapon
+                    for (int step = 1; step <= kWeaponCount; ++step) {
+                        const int k = (wantWeapon + step) % kWeaponCount;
+                        if (status.weaponsOwned & (1u << k)) {
+                            wantWeapon = k;
+                            break;
+                        }
+                    }
+                }
+                lastRightClick = right;
+            }
             if (input.pressed(U'g')) pendingEdges |= Buttons::Wave;
             if (input.pressed(U'o')) {
                 rs.outlines = !rs.outlines;
@@ -471,8 +488,23 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             if (input.held(U'+') || input.held(U'=')) camera.zoom(-6.0f * dt);
             if (input.held(U'-')) camera.zoom(6.0f * dt);
         }
-        yawIn -= static_cast<float>(input.dragDx()) * cfg.mouseSensitivity;
-        pitchIn += static_cast<float>(input.dragDy()) * cfg.mouseSensitivity * (cfg.invertY ? -1.0f : 1.0f);
+        const float invert = cfg.invertY ? -1.0f : 1.0f;
+        if (cfg.mouseLook && opts.mouse && phone == PhoneScreen::Closed && !chatting) {
+            // Mouse look: any movement turns the camera. Cells are coarse, so
+            // resting the pointer near the left/right edge keeps turning.
+            yawIn -= static_cast<float>(input.motionDx()) * cfg.mouseSensitivity * 1.4f;
+            pitchIn += static_cast<float>(input.motionDy()) * cfg.mouseSensitivity * 1.1f * invert;
+            const int cols = std::max(1, terminal.size().cols);
+            const float edge = std::max(3.0f, static_cast<float>(cols) * 0.12f);
+            const float x = static_cast<float>(input.mouseX());
+            if (input.focused() && input.mouseRecentlyMoved(now, 2.5)) {
+                if (x < edge) yawIn += cfg.keyRotateSpeed * 1.3f * (1.0f - x / edge) * dt;
+                if (x > static_cast<float>(cols - 1) - edge) yawIn -= cfg.keyRotateSpeed * 1.3f * (1.0f - (static_cast<float>(cols - 1) - x) / edge) * dt;
+            }
+        } else {
+            yawIn -= static_cast<float>(input.dragDx()) * cfg.mouseSensitivity;
+            pitchIn += static_cast<float>(input.dragDy()) * cfg.mouseSensitivity * invert;
+        }
         camera.zoom(static_cast<float>(-input.wheel()) * 0.8f);
 
         // This frame's input.
@@ -498,7 +530,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                 move = normalize(move);
                 base.moveX = toS8(move.x);
                 base.moveZ = toS8(move.z);
-                if (input.held(U'x')) base.buttons |= Buttons::Fire;
+                if (input.held(U'x') || (cfg.mouseLook && opts.mouse && input.mouseLeft() && phone == PhoneScreen::Closed))
+                    base.buttons |= Buttons::Fire; // X or left click
                 if (input.held(U' ')) base.buttons |= Buttons::Ascend;
                 if (input.held(U'z')) base.buttons |= Buttons::Descend;
             }
@@ -539,10 +572,11 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             const WeaponDef& wd = weaponDef(status.weapon);
             localFireTimer = wd.interval;
             if (wd.kind == WeaponKind::Melee) {
-                audio.play(Sound::Punch, 0.7f);
+                audio.play(Sound::Punch, 0.5f);
                 localAction = static_cast<std::uint8_t>((((localAction >> 2) + 1) << 2) | 2);
             } else if (status.ammo > 0) {
-                audio.play(wd.kind == WeaponKind::Gun ? Sound::Gunshot : Sound::Swoosh, wd.kind == WeaponKind::Gun ? 0.5f : 0.7f);
+                audio.play(wd.kind == WeaponKind::Gun ? Sound::Gunshot : Sound::Swoosh, wd.kind == WeaponKind::Gun ? 0.4f : 0.6f,
+                           wd.automatic ? 1.1f : (status.weapon == Sniper || status.weapon == Shotgun ? 0.8f : 1.0f));
             }
         }
 
@@ -677,18 +711,45 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         // ---- audio ----
         if (!driving && me.mode() == CharacterMode::OnFoot && me.grounded() && meState.speed > 0.5f) {
             const float gait = myAnim.animator.gaitPhase();
-            if ((lastGait < 0.5f && gait >= 0.5f) || gait < lastGait) audio.play(Sound::Footstep, meState.speed > 3.0f ? 0.6f : 0.35f);
+            if ((lastGait < 0.5f && gait >= 0.5f) || gait < lastGait) {
+                // Every step a little different: pitch and level vary like real footfalls.
+                stepRng = stepRng * 1664525u + 1013904223u;
+                const float jitter = static_cast<float>(stepRng >> 24) / 255.0f;
+                audio.play(Sound::Footstep, (meState.speed > 3.0f ? 0.32f : 0.18f) * (0.8f + 0.4f * jitter), 0.88f + 0.24f * jitter);
+            }
         }
         lastGait = myAnim.animator.gaitPhase();
-        if (driving) {
+        const bool flying = driving && vehicleSpec(me.vehicleModel()).flies;
+        if (driving && !flying) {
+            // Revs climb through each gear and drop on the shift.
             const float speed = std::fabs(me.vehicle().speed);
-            audio.setLoop(Loop::Engine, 0.55f, 1.0f + speed * 0.09f + (std::fabs(base.throttle) > 0 ? 0.3f : 0.0f));
+            const float gearSpan = 9.0f;
+            const int gear = std::min(4, static_cast<int>(speed / gearSpan));
+            const float within = std::clamp((speed - static_cast<float>(gear) * gearSpan) / gearSpan, 0.0f, 1.0f);
+            const float load = std::fabs(static_cast<float>(base.throttle)) > 0 ? 0.25f : 0.0f;
+            const float revs = 1.0f + 0.15f * static_cast<float>(gear) + (gear == 4 ? speed / 40.0f : within * 1.2f) + load;
+            audio.setLoop(Loop::Engine, 0.3f + load * 0.5f, revs);
             if (me.vehicle().damage > lastDamage + 0.02f) audio.play(Sound::Crash, std::min(1.0f, (me.vehicle().damage - lastDamage) * 12.0f));
             lastDamage = me.vehicle().damage;
         } else {
             audio.setLoop(Loop::Engine, 0.0f);
-            lastDamage = 0.0f;
+            lastDamage = flying ? lastDamage : 0.0f;
         }
+        // Helicopters (yours, or anyone's nearby) and the jetpack.
+        float rotorVolume = flying ? 0.45f * std::clamp(me.vehicle().rotor, 0.0f, 1.0f) : 0.0f;
+        float rotorPitch = flying ? 0.6f + 0.4f * me.vehicle().rotor : 1.0f;
+        for (const auto& [id, e] : remote.entities()) {
+            if (e.current.kind == EntityKind::Vehicle && e.current.model == static_cast<std::uint8_t>(VehicleModel::Helicopter) &&
+                e.current.steer > 0.3f && id != me.vehicleNetId()) {
+                const float near = 0.4f * (1.0f - distance(e.current.position, me.position()) / 120.0f);
+                if (near > rotorVolume) {
+                    rotorVolume = near;
+                    rotorPitch = 1.0f;
+                }
+            }
+        }
+        audio.setLoop(Loop::Rotor, std::max(0.0f, rotorVolume), rotorPitch);
+        audio.setLoop(Loop::Jet, me.mode() == CharacterMode::OnFoot && me.jetpack() && !me.grounded() ? 0.35f : 0.0f);
         float sirenVolume = 0.0f;
         for (const auto& [id, e] : remote.entities()) {
             if (e.current.kind == EntityKind::Vehicle && (e.current.flags & EntityFlags::Sirens)) {
@@ -716,7 +777,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             if (e.current.subtype == static_cast<std::uint8_t>(EffectType::Explosion)) {
                 audio.play(Sound::Explosion, std::clamp(1.0f - d / 120.0f, 0.1f, 1.0f));
             } else if (e.current.subtype == static_cast<std::uint8_t>(EffectType::Tracer) && d > 2.0f) {
-                audio.play(Sound::Gunshot, std::clamp(0.5f - d / 160.0f, 0.05f, 0.5f));
+                audio.play(Sound::Gunshot, std::clamp(0.35f - d / 200.0f, 0.03f, 0.35f), 0.9f); // distant shots sound duller
             }
         }
         lastEffectSound = now;
@@ -735,6 +796,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             }
         }
         combat.interiorLights(cam.position, light.pointLights);
+        if (!inside) combat.setPieceLights(cam.position, static_cast<float>(now), hour, light.pointLights);
         if (inside) {
             light.skyAmbient = light.skyAmbient * 0.35f + Vec3{0.2f, 0.18f, 0.16f};
             light.sunColor = light.sunColor * 0.25f;
@@ -755,6 +817,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         const TerminalSize ts = terminal.size();
         renderer.beginFrame(ts.cols, ts.rows, cam, light);
         combat.drawInteriors(renderer, cam.position);
+        if (!inside) combat.drawSetPieces(renderer, cam.position, static_cast<float>(now), hour);
         for (const auto& [coord, chunk] : world.chunks()) {
             if (inside || !renderer.isVisible(chunk->worldBounds)) continue;
             const Mat4 model = Mat4::translation(chunk->origin());
@@ -912,6 +975,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     audio.setLoop(Loop::Engine, 0.0f);
     audio.setLoop(Loop::Siren, 0.0f);
     audio.setLoop(Loop::Radio, 0.0f);
+    audio.setLoop(Loop::Rotor, 0.0f);
+    audio.setLoop(Loop::Jet, 0.0f);
 
     summary.frames = clock.frameCount();
     summary.seconds = clock.elapsedSeconds();

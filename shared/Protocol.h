@@ -120,6 +120,7 @@ struct PlayerStatus {
     std::uint16_t ammo = 0;     // for the current weapon
     std::uint16_t weaponsOwned = 1; // bit per weapon id (fists always)
     std::uint8_t god = 0;       // invincibility cheat
+    std::uint8_t eggsFound = 0, eggsTotal = 0; // golden eggs
     bool operator==(const PlayerStatus& o) const;
 };
 

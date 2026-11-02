@@ -7,7 +7,7 @@
 // network constants).
 namespace av::proto {
 
-inline constexpr std::uint8_t kProtocolVersion = 3;
+inline constexpr std::uint8_t kProtocolVersion = 4;
 inline constexpr std::uint16_t kDefaultPort = 41986;
 inline constexpr std::uint16_t kUdpMagic = 0xA51C;
 inline constexpr std::uint16_t kDiscoveryPort = 41987; // LAN room discovery (UDP broadcast)
@@ -25,7 +25,7 @@ enum class EntityKind : std::uint8_t { Character, Vehicle, Pickup, Marker, Effec
 enum class EffectType : std::uint8_t { Tracer, Explosion, Rocket, Grenade };
 // Pickup subtypes: 0 flamingo statuette, 1 cash, 2 health, 3 jetpack, 10 + weapon id = that weapon.
 namespace PickupType {
-enum : std::uint8_t { Flamingo = 0, Cash = 1, Health = 2, Jetpack = 3, WeaponBase = 10 };
+enum : std::uint8_t { Flamingo = 0, Cash = 1, Health = 2, Jetpack = 3, GoldenEgg = 4, WeaponBase = 10 };
 }
 enum class MarkerKind : std::uint8_t { None, MissionStart, Objective, Checkpoint, SavePoint, Dealership, Door, Helipad };
 

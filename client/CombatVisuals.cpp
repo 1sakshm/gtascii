@@ -1,5 +1,7 @@
 #include "CombatVisuals.h"
 
+#include "EasterEggs.h"
+
 #include "Animation/Humanoid.h"
 #include "Graphics/Renderer.h"
 
@@ -148,6 +150,39 @@ CombatVisuals::CombatVisuals(MaterialLibrary& materials)
     }
     MeshBuilder(ring_).addTorus({0, 0.05f, 0}, 0.45f, 0.04f, 14, 4, pickupGlow_);
     ring_.computeBounds();
+
+    const MaterialId gold = mat(materials, "gold", "pastel_yellow");
+    MeshBuilder(egg_).addEllipsoid({0, 0, 0}, {0.22f, 0.3f, 0.22f}, 6, 10, gold);
+    egg_.computeBounds();
+    {
+        // Saucer: a wide flat disc, a glass dome, a ring of lights underneath.
+        MeshBuilder b(ufo_);
+        const MaterialId hull = mat(materials, "metal", "metal_dark"), dome = mat(materials, "glass_teal", "car_glass");
+        b.addEllipsoid({0, 0, 0}, {9.0f, 1.3f, 9.0f}, 6, 24, hull);
+        b.addEllipsoid({0, 1.1f, 0}, {3.2f, 2.2f, 3.2f}, 6, 16, dome);
+        ufo_.computeBounds();
+        MeshBuilder lb(ufoLights_);
+        const MaterialId lamp = mat(materials, "neon_cyan", "lamp_glow");
+        for (int i = 0; i < 12; ++i) {
+            const float a = static_cast<float>(i) * kTwoPi / 12.0f;
+            lb.addEllipsoid({std::sin(a) * 7.2f, -0.7f, std::cos(a) * 7.2f}, {0.5f, 0.35f, 0.5f}, 3, 6, lamp);
+        }
+        ufoLights_.computeBounds();
+        MeshBuilder(ufoBeam_).addCylinder({0, -70.0f, 0}, 69.0f, 6.0f, 1.5f, 16, mat(materials, "marker_green", "neon_cyan"), false);
+        ufoBeam_.computeBounds();
+    }
+    {
+        // A rubber duck the size of a house.
+        MeshBuilder b(duck_);
+        const MaterialId yellow = mat(materials, "pastel_yellow", "car_paint_7"), orange = mat(materials, "awning_red", "neon_pink"),
+                         eye = mat(materials, "char_eye", "metal_dark");
+        b.addEllipsoid({0, 1.2f, 0}, {2.6f, 1.7f, 3.4f}, 8, 16, yellow);      // body
+        b.addEllipsoid({0, 1.9f, -2.4f}, {1.4f, 1.2f, 1.1f}, 6, 12, yellow);  // tail
+        b.addEllipsoid({0, 3.6f, 1.6f}, {1.6f, 1.6f, 1.6f}, 8, 14, yellow);   // head
+        b.addEllipsoid({0, 3.3f, 3.2f}, {0.9f, 0.35f, 0.7f}, 5, 10, orange);  // beak
+        for (const float x : {-0.75f, 0.75f}) b.addEllipsoid({x, 4.2f, 2.85f}, {0.2f, 0.25f, 0.15f}, 4, 6, eye);
+        duck_.computeBounds();
+    }
 }
 
 void CombatVisuals::drawHeld(Renderer& renderer, const Mat4& world, const std::vector<Mat4>& joints, int weapon) const
@@ -221,6 +256,11 @@ void CombatVisuals::drawPickup(Renderer& renderer, const EntityState& s, float t
 {
     const Mat4 spin = Mat4::translation(s.position + Vec3{0, 0.35f + 0.12f * std::sin(time * 2.5f), 0}) * Mat4::rotationY(time * 1.8f);
     const Mat4 ground = Mat4::translation(s.position);
+    if (s.subtype == PickupType::GoldenEgg) {
+        renderer.drawMesh(egg_, spin * Mat4::rotationZ(0.3f * std::sin(time * 3.0f)));
+        renderer.drawMesh(ring_, ground * Mat4::scale({1.3f, 1.0f, 1.3f}) * Mat4::rotationY(-time * 2.0f));
+        return;
+    }
     if (s.subtype == PickupType::Cash) {
         renderer.drawMesh(cash_, spin);
     } else if (s.subtype == PickupType::Health) {
@@ -231,6 +271,32 @@ void CombatVisuals::drawPickup(Renderer& renderer, const EntityState& s, float t
     } else if (s.subtype >= PickupType::WeaponBase && s.subtype < PickupType::WeaponBase + kWeaponCount) {
         renderer.drawMesh(weapons_[s.subtype - PickupType::WeaponBase], spin * Mat4::scale({1.6f, 1.6f, 1.6f}) * Mat4::translation({0, 0, -0.15f}));
         renderer.drawMesh(ring_, ground);
+    }
+}
+
+void CombatVisuals::drawSetPieces(Renderer& renderer, const Vec3& camera, float time, float hour) const
+{
+    if (distance(camera, kUfoPosition) < 600.0f) {
+        const Vec3 bob{0.0f, 1.5f * std::sin(time * 0.7f), 0.0f};
+        const Mat4 m = Mat4::translation(kUfoPosition + bob) * Mat4::rotationY(time * 0.3f) * Mat4::rotationX(0.08f * std::sin(time * 0.5f));
+        renderer.drawMesh(ufo_, m);
+        if (std::fmod(time * 2.0f, 1.0f) < 0.7f) renderer.drawMesh(ufoLights_, m);
+        const bool night = hour < 6.0f || hour > 19.5f;
+        if (night) renderer.drawMesh(ufoBeam_, Mat4::translation(kUfoPosition + bob));
+    }
+    if (distance(camera, kDuckPosition) < 250.0f) {
+        const Mat4 m = Mat4::translation(kDuckPosition + Vec3{0.0f, -0.3f + 0.15f * std::sin(time * 1.3f), 0.0f}) *
+                       Mat4::rotationY(0.6f + 0.2f * std::sin(time * 0.2f)) * Mat4::rotationZ(0.05f * std::sin(time * 1.1f));
+        renderer.drawMesh(duck_, m);
+    }
+}
+
+void CombatVisuals::setPieceLights(const Vec3& camera, float time, float hour, std::vector<PointLight>& out) const
+{
+    (void)time;
+    const bool night = hour < 6.0f || hour > 19.5f;
+    if (night && distance(camera, kUfoPosition) < 250.0f) {
+        out.push_back({kUfoPosition + Vec3{0, -6, 0}, {0.3f, 1.0f, 0.5f}, 40.0f, 2.0f});
     }
 }
 
