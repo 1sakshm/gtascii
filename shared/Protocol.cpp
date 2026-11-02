@@ -60,7 +60,8 @@ bool PlayerStatus::operator==(const PlayerStatus& o) const
            objective == o.objective && static_cast<int>(missionTimer) == static_cast<int>(o.missionTimer) &&
            marker == o.marker && markerPosition == o.markerPosition && prompt == o.prompt &&
            pickupsFound == o.pickupsFound && pickupsTotal == o.pickupsTotal && missionsDone == o.missionsDone &&
-           frozen == o.frozen && playSeconds / 10 == o.playSeconds / 10;
+           frozen == o.frozen && playSeconds / 10 == o.playSeconds / 10 && weapon == o.weapon && ammo == o.ammo &&
+           weaponsOwned == o.weaponsOwned && god == o.god;
 }
 
 std::vector<std::uint8_t> encode(const Hello& m)
@@ -199,6 +200,10 @@ std::vector<std::uint8_t> encode(const PlayerStatus& m)
     w.u16(m.missionsTotal);
     w.u32(m.playSeconds);
     w.u8(m.frozen);
+    w.u8(m.weapon);
+    w.u16(m.ammo);
+    w.u16(m.weaponsOwned);
+    w.u8(m.god);
     return w.data();
 }
 
@@ -228,6 +233,10 @@ std::optional<PlayerStatus> decodeStatus(const std::vector<std::uint8_t>& p)
     m.missionsTotal = r.u16();
     m.playSeconds = r.u32();
     m.frozen = r.u8();
+    m.weapon = r.u8();
+    m.ammo = r.u16();
+    m.weaponsOwned = r.u16();
+    m.god = r.u8();
     return finish(r, m);
 }
 
@@ -392,6 +401,8 @@ std::vector<std::uint8_t> encodeInputs(std::uint32_t session, const std::vector<
         w.u16(f.buttons);
         w.i8(f.throttle);
         w.i8(f.steer);
+        w.i8(f.aim);
+        w.u8(f.weapon);
     }
     return w.data();
 }
@@ -420,6 +431,8 @@ std::optional<std::vector<InputFrame>> decodeInputs(ByteReader& r)
         f.buttons = r.u16();
         f.throttle = r.i8();
         f.steer = r.i8();
+        f.aim = r.i8();
+        f.weapon = r.u8();
         frames.push_back(f);
     }
     if (!r.ok()) {
@@ -445,12 +458,15 @@ std::vector<std::uint8_t> encodeSnapshot(std::uint32_t session, const Snapshot& 
     w.u8(me.grounded ? 1 : 0);
     w.u16(me.vehicle);
     w.u8(me.seat);
+    w.u8(me.jetpack ? 1 : 0);
     if (me.vehicle != 0 && me.seat == 0) {
         vec(w, me.vehiclePosition);
         w.f32(me.vehicleYaw);
         w.f32(me.vehicleSpeed);
         w.f32(me.vehicleSteer);
         w.f32(me.vehicleDamage);
+        w.f32(me.vehicleVerticalSpeed);
+        w.f32(me.vehicleRotor);
     }
 
     // Entities until the datagram is full.
@@ -473,6 +489,12 @@ std::vector<std::uint8_t> encodeSnapshot(std::uint32_t session, const Snapshot& 
             ew.unorm8(e.speed, 12.0f);
             ew.snorm8(e.verticalSpeed, 20.0f);
             ew.u16(e.vehicle);
+            ew.u8(e.subtype);
+            break;
+        case EntityKind::Effect:
+            ew.u8(e.subtype);
+            ew.unorm8(e.speed, 250.0f);
+            ew.snorm8(e.verticalSpeed, 120.0f);
             break;
         case EntityKind::Vehicle:
             ew.u8(e.model);
@@ -514,12 +536,15 @@ std::optional<Snapshot> decodeSnapshot(ByteReader& r)
     me.grounded = r.u8() != 0;
     me.vehicle = r.u16();
     me.seat = r.u8();
+    me.jetpack = r.u8() != 0;
     if (me.vehicle != 0 && me.seat == 0) {
         me.vehiclePosition = vec(r);
         me.vehicleYaw = r.f32();
         me.vehicleSpeed = r.f32();
         me.vehicleSteer = r.f32();
         me.vehicleDamage = r.f32();
+        me.vehicleVerticalSpeed = r.f32();
+        me.vehicleRotor = r.f32();
     }
     const int n = r.u8();
     for (int i = 0; i < n && r.ok(); ++i) {
@@ -540,8 +565,14 @@ std::optional<Snapshot> decodeSnapshot(ByteReader& r)
             e.speed = r.unorm8(12.0f);
             e.verticalSpeed = r.snorm8(20.0f);
             e.vehicle = r.u16();
+            e.subtype = r.u8();
             break;
         }
+        case EntityKind::Effect:
+            e.subtype = r.u8();
+            e.speed = r.unorm8(250.0f);
+            e.verticalSpeed = r.snorm8(120.0f);
+            break;
         case EntityKind::Vehicle:
             e.model = r.u8();
             e.paint = r.u8();

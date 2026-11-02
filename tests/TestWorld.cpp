@@ -83,7 +83,7 @@ TEST_CASE("CityLayout: terrain heights for roads, curbs, beach and sea")
     CHECK_EQ(layout.groundHeight(30.0f, 30.0f), CityLayout::kCurbHeight);   // lot
     const float beachX = 3.0f * kChunkSize;
     CHECK(layout.groundHeight(beachX + 10.0f, 30.0f) > layout.groundHeight(beachX + 50.0f, 30.0f)); // slopes to sea
-    CHECK_EQ(layout.groundHeight(5.0f * kChunkSize, 0.0f), CityLayout::kSeabed);
+    CHECK_EQ(layout.groundHeight(5.0f * kChunkSize, 0.0f), CityLayout::kDeepSea); // open water is deep enough to swim
     // Beach meets seabed without a step at the chunk border.
     CHECK(nearlyEqual(layout.groundHeight(4.0f * kChunkSize - 0.01f, 10.0f), CityLayout::kSeabed, 0.01f));
     CHECK(layout.surface({3, 0}, 60.0f, 10.0f) == Surface::Water);

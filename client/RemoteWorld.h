@@ -51,7 +51,7 @@ public:
     struct Entity {
         std::deque<std::pair<double, av::proto::EntityState>> samples; // (server time, state)
         av::proto::EntityState current;
-        double lastSeen = 0.0;
+        double lastSeen = 0.0, firstSeen = 0.0;
         CharacterAnimation anim;
     };
 
@@ -69,6 +69,7 @@ public:
     void vehicleObstacles(std::vector<av::AABB>& out, std::uint16_t exclude) const;
 
     float interpolationDelay = 0.1f;
+    const class CombatVisuals* combat = nullptr; // weapons, effects, loot
     float serverTime(double localTime) const { return static_cast<float>(localTime + clockOffset_); }
     float latestHour() const { return hour_; }
 
@@ -80,7 +81,7 @@ private:
     bool clockValid_ = false;
     float hour_ = 12.0f;
     av::Mesh beam_, ring_, diamond_, flamingo_;
-    av::MaterialId markerMats_[6] = {};
+    av::MaterialId markerMats_[8] = {};
     av::MaterialId pickupMat_ = av::kNoMaterial;
 };
 

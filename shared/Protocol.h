@@ -32,7 +32,7 @@ enum class Tcp : std::uint8_t {
     Scoreboard = 18,  // S->C
 };
 
-enum class CommandKind : std::uint8_t { SkipHour = 1, StartRace = 2, StartCopsAndRobbers = 3 };
+enum class CommandKind : std::uint8_t { SkipHour = 1, StartRace = 2, StartCopsAndRobbers = 3, ToggleJetpack = 4 };
 
 struct Hello {
     std::uint8_t version = kProtocolVersion;
@@ -116,6 +116,10 @@ struct PlayerStatus {
     std::uint16_t missionsDone = 0, missionsTotal = 0;
     std::uint32_t playSeconds = 0;
     std::uint8_t frozen = 0;    // race countdown: inputs ignored
+    std::uint8_t weapon = 0;    // current weapon id
+    std::uint16_t ammo = 0;     // for the current weapon
+    std::uint16_t weaponsOwned = 1; // bit per weapon id (fists always)
+    std::uint8_t god = 0;       // invincibility cheat
     bool operator==(const PlayerStatus& o) const;
 };
 
@@ -127,6 +131,10 @@ struct InputFrame {
     std::int8_t moveX = 0, moveZ = 0; // world-space move direction * 127
     std::uint16_t buttons = 0;
     std::int8_t throttle = 0, steer = 0; // * 127 (driving)
+    std::int8_t aim = 0;                 // aim yaw * 127 / pi (camera direction)
+    std::uint8_t weapon = 0;             // weapon the player wants in hand
+
+    float aimYaw() const { return aim * (3.14159265f / 127.0f); }
 
     Vec3 move() const { return {moveX / 127.0f, 0.0f, moveZ / 127.0f}; }
     bool has(std::uint16_t b) const { return (buttons & b) != 0; }
@@ -139,9 +147,11 @@ struct SelfState {
     bool grounded = true;
     std::uint16_t vehicle = 0; // net id, 0 = none
     std::uint8_t seat = 0;
+    bool jetpack = false; // flying with the jetpack (prediction must know)
     // Driver only: the authoritative vehicle state for prediction.
     Vec3 vehiclePosition;
     float vehicleYaw = 0.0f, vehicleSpeed = 0.0f, vehicleSteer = 0.0f, vehicleDamage = 0.0f;
+    float vehicleVerticalSpeed = 0.0f, vehicleRotor = 0.0f; // helicopter
 };
 
 struct EntityState {
@@ -160,7 +170,8 @@ struct EntityState {
     // Vehicle
     std::uint8_t model = 0, paint = 0;
     float steer = 0.0f, wheelSpin = 0.0f, pitch = 0.0f, roll = 0.0f, damage = 0.0f;
-    // Pickup / marker
+    // Pickup / marker subtype; weapon in hand for characters; EffectType for effects.
+    // Effects reuse yaw (direction), speed (length) and verticalSpeed (height change).
     std::uint8_t subtype = 0;
 };
 

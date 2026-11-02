@@ -128,6 +128,33 @@
         "marker_green":  {"color": [80, 255, 120], "emissive": [60, 255, 110], "emissiveStrength": 0.6, "unlit": true, "ramp": "light"},
         "pickup_pink":   {"color": [255, 110, 180], "emissive": [255, 90, 170], "emissiveStrength": 0.5, "specular": 1.0},
 
+        // ---- weapons, effects, flying vehicles, interiors ----
+        "gun_metal":     {"color": [45, 45, 52],   "specular": 0.6, "shininess": 40},
+        "gun_wood":      {"color": [110, 70, 40]},
+        "blade":         {"color": [200, 205, 215], "specular": 1.0, "shininess": 60},
+        "rocket_body":   {"color": [90, 110, 70]},
+        "tracer":        {"color": [255, 230, 140], "emissive": [255, 220, 120], "emissiveStrength": 1.5, "unlit": true, "ramp": "light"},
+        "fire":          {"color": [255, 150, 40],  "emissive": [255, 120, 30], "emissiveStrength": 1.6, "unlit": true, "ramp": "light"},
+        "smoke":         {"color": [70, 70, 75], "noise": 0.4},
+        "cash_green":    {"color": [80, 200, 90], "emissive": [40, 160, 60], "emissiveStrength": 0.4, "specular": 0.5},
+        "weapon_pickup": {"color": [120, 220, 255], "emissive": [60, 180, 255], "emissiveStrength": 0.5, "specular": 1.0},
+        "jetpack":       {"color": [150, 150, 160], "specular": 0.8, "shininess": 40},
+        "heli_body":     {"color": [30, 60, 110], "specular": 0.6, "shininess": 30},
+        "rotor":         {"color": [25, 25, 28], "doubleSided": true},
+        "carpet_red":    {"color": [140, 20, 35], "noise": 0.3},
+        "carpet_blue":   {"color": [30, 40, 110], "noise": 0.3},
+        "wood_floor":    {"color": [150, 105, 65], "noise": 0.25},
+        "felt_green":    {"color": [20, 120, 60], "noise": 0.2},
+        "gold":          {"color": [230, 185, 60], "specular": 1.0, "shininess": 50},
+        "slot_screen":   {"color": [255, 200, 80], "emissive": [255, 180, 60], "emissiveStrength": 0.9, "unlit": true, "ramp": "light"},
+        "dance_floor_a": {"color": [255, 60, 200], "emissive": [255, 40, 190], "emissiveStrength": 0.6, "ramp": "light"},
+        "dance_floor_b": {"color": [40, 220, 255], "emissive": [30, 200, 255], "emissiveStrength": 0.6, "ramp": "light"},
+        "office_carpet": {"color": [90, 95, 105], "noise": 0.2},
+        "sofa":          {"color": [160, 60, 70]},
+        "bed_sheet":     {"color": [220, 220, 235]},
+        "screen_blue":   {"color": [80, 160, 255], "emissive": [60, 140, 255], "emissiveStrength": 0.7, "unlit": true},
+        "marker_orange": {"color": [255, 150, 40], "emissive": [255, 130, 30], "emissiveStrength": 0.8, "unlit": true, "ramp": "light"},
+
         // ---- characters (base materials; appearance colours are added at runtime) ----
         "char_eye":      {"color": [20, 20, 25]}
     }

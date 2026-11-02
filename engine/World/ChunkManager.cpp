@@ -111,8 +111,18 @@ float ChunkManager::groundHeight(float x, float z) const
     return generator_.layout().groundHeight(x, z);
 }
 
+float ChunkManager::waterLevel(float x, float z) const
+{
+    return generator_.layout().waterLevel(x, z);
+}
+
 void ChunkManager::gatherColliders(const AABB& region, std::vector<AABB>& out) const
 {
+    for (const AABB& b : extraColliders) {
+        if (b.intersects(region)) {
+            out.push_back(b);
+        }
+    }
     const ChunkCoord lo = worldToChunk(region.min.x, region.min.z);
     const ChunkCoord hi = worldToChunk(region.max.x, region.max.z);
     for (int cz = lo.z; cz <= hi.z; ++cz) {

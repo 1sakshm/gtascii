@@ -32,6 +32,8 @@ public:
     float yaw() const { return driving() ? car_.yaw : foot_.yaw; }
     av::Vec3 velocity() const { return driving() ? car_.velocity() : foot_.motor.velocity; }
     bool grounded() const { return foot_.motor.grounded(); }
+    bool jetpack() const { return foot_.jetpack; }
+    bool swimming() const { return foot_.swimming; }
     float turnRate() const { return foot_.turnRate; }
     float landingImpact() const { return landingImpact_; }
     const av::VehicleState& vehicle() const { return carVisual_; }

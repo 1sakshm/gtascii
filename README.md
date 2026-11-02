@@ -49,11 +49,13 @@ Use the arrow keys and Enter, or the mouse. Settings and saves live in
 |---|---|---|---|
 | `W A S D` | move (camera-relative) | `W` / `S` | throttle / brake, reverse |
 | `Shift` | walk (`R` swaps run/walk) | `A` / `D` | steer |
-| `Space` | jump | `Space` | handbrake |
-| `C` | crouch | `F` | get out |
-| `F` | get in, carjack, or ride along when a friend is driving | | |
-| `E` | use: start a mission or race, save, buy a car | | |
-| `X` | punch | | |
+| `Space` | jump (jetpack: fly up) | `Space` | handbrake (helicopter: up) |
+| `C` | crouch | `Z` | helicopter: down |
+| `F` | get in, carjack, or ride along when a friend is driving | `F` | get out |
+| `E` | use: missions, doors, slot machines, save, buy a car | | |
+| `X` | attack / shoot where the camera looks (hold for automatic weapons) | | |
+| `Q`, `1`-`9`, `0`, `` ` `` | next weapon, pick a weapon, fists | | |
+| `J` | put the jetpack on / take it off | | |
 | `G` | wave | | |
 
 Both modes share these keys:
@@ -79,6 +81,77 @@ Both modes share these keys:
 
 Replay a recording with `asciinema play file.cast`, or turn it into a GIF with
 [agg](https://github.com/asciinema/agg).
+
+### Weapons
+
+| Key | Weapon | |
+|---|---|---|
+| `` ` `` | Fists | always with you |
+| `1` | Baseball bat | melee |
+| `2` | Knife | melee |
+| `3` | Pistol | |
+| `4` | Uzi | automatic |
+| `5` | Shotgun | 8 pellets, knocks people down |
+| `6` | Assault rifle | automatic |
+| `7` | Sniper rifle | one shot, long range |
+| `8` | Minigun | automatic, 400 rounds |
+| `9` | Rocket launcher | explodes on contact; wrecks cars |
+| `0` | Grenades | thrown in an arc, 2 s fuse, they bounce |
+
+- **Auto-aim**: you shoot where the camera faces, and the target you'll hit is marked `[ + ]`.
+- **Finding weapons**: one of each lies somewhere in town and comes back 45 s after it's picked up. A jetpack waits on the beach, and there's health outside the hospital and the police station.
+- **Loot**: anyone who dies drops their cash and weapon. Walk over a drop to pick it up. Dead police always drop a pistol, and when you die you drop 10% of your cash and the weapon you were holding.
+- **Police**: from two stars up, they shoot back.
+- **Wrecks**: a car that takes enough damage blows up, along with anyone inside.
+
+### Cheat codes
+
+Type a code into chat (`Enter`). Codes never show up in chat, and the phone (`P`) lists them.
+
+| Code | Effect |
+|---|---|
+| `FULLCLIP` | every weapon with lots of ammo |
+| `HEALME` | full health |
+| `RICHBOY` | +$50,000 |
+| `CALMDOWN` / `MAXWANTED` | clear your wanted level / five stars |
+| `FLYBOY` | a helicopter next to you |
+| `ROCKETMAN` | a jetpack |
+| `SPEEDY` | a Vortex GT sports car |
+| `IAMGOD` | invincible (type it again to turn it off) |
+| `SUNRISE` / `MIDNIGHT` | morning / night |
+| `BOOMTOWN` | every car nearby explodes |
+| `LETSPARTY` / `HIGHROLLER` | straight into the club / the casino |
+
+Servers can turn cheats off with `allowCheats: false` in `config/server.json`.
+
+### Vehicles, flying and swimming
+
+- **Cars**: sedan, coupe, van, cab, police cruiser, and the **Vortex GT** sports car. The Vortex GT turns up in traffic sometimes and is for sale at Sunshine Motors.
+- **Helicopters**:
+  - They wait on the helipads in Bayfront Park and on the lighthouse beach, or you can call one with `FLYBOY`.
+  - `W`/`S` fly forward and back, and `A`/`D` turn.
+  - `Space` climbs, `Z` descends, and letting go of both makes it hover.
+  - It lands on the ground, on rooftops and on water.
+- **Jetpack**:
+  - `Space` flies up, `Shift` goes fast, and letting go of `Space` makes you drift down slowly.
+  - The flight ceiling is 140 m for both the jetpack and the helicopter.
+- **Swimming**:
+  - Deep water in the canal and out at sea makes you swim. `Shift` swims faster.
+  - Out at sea, an invisible wall marks the edge of the map.
+
+### Buildings you can enter
+
+Glowing orange rings mark the doors. Press `E` to go in and `E` at the ring inside to leave.
+
+| Building | Where | What's inside |
+|---|---|---|
+| Your Apartment | the safehouse | sleep until 8 AM, heal and save (`E` at the bed) |
+| Vice Tower Offices | downtown | trading terminals: stake $1000 for a −25% to +45% swing |
+| Club Malibu | Ocean Drive | a neon dance floor and a crowd |
+| Flamingo Casino | Hotel Flamingo, Ocean Drive | slot machines ($100 a spin, $5,000 jackpot) and card tables |
+
+You can't go inside while the police are after you. Door positions are in
+`assets/maps/interiors.json`.
 
 ### Sound
 
@@ -284,7 +357,7 @@ IDs. Server entities are built from components:
 ```powershell
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j 8
-ctest --test-dir build --output-on-failure     # 103 tests
+ctest --test-dir build --output-on-failure     # 110 tests
 .\build\client\gtascii.exe
 ```
 
@@ -318,7 +391,7 @@ node scripts/build-npm.mjs bin win32-x64 path/to/binaries   # holds gtascii(.exe
 node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<version>.tgz
 ```
 
-## Tests (103)
+## Tests (110)
 
 - **Engine**: maths, renderer, characters and animation, world generation, streaming, collision, vehicles, navigation and traffic.
 - **Protocol**:
@@ -330,6 +403,9 @@ node scripts/build-npm.mjs pack                             # dist/npm/gtascii-<
   - multi-room create, join and rejection
 - **Gameplay**:
   - missions, police and pickups
+  - shooting a pedestrian who drops cash, a rocket wrecking a car, cheat codes
+  - swimming and the edge of the map, jetpack flight, helicopter take-off
+  - entering the casino, playing the slots and leaving
   - a full race from gathering to podium
   - a Cops & Robbers round
 

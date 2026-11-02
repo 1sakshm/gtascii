@@ -341,6 +341,10 @@ void GameServer::handleChat(Client& c, const std::string& raw)
     if (text.empty() || !c.room) {
         return;
     }
+    if (c.room->world->tryCheat(c.player, text)) {
+        emit("[" + c.room->code + "] " + c.name + " used a cheat: " + text);
+        return; // typed codes never show up in chat
+    }
     if (text[0] == '/') {
         std::string reply;
         if (text == "/players") {

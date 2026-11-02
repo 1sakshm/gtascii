@@ -6,7 +6,7 @@ namespace av {
 
 enum class Sound {
     MenuMove, MenuSelect, Footstep, Punch, Hit, Pickup, MissionStart, MissionPass, MissionFail,
-    Crash, Chat, Arrested, Money, Door, Countdown, Go, Count
+    Crash, Chat, Arrested, Money, Door, Countdown, Go, Gunshot, Explosion, Swoosh, Count
 };
 
 enum class Loop { Engine, Siren, Radio, Count };

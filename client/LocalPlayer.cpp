@@ -48,6 +48,7 @@ void LocalPlayer::reconcile(const Snapshot& snap, VehicleModel vehicleModel, con
     if (mode_ == CharacterMode::OnFoot) {
         const Vec3 before = position();
         foot_.motor.setState(s.position, s.velocity, s.grounded);
+        foot_.jetpack = s.jetpack;
         if (previous != CharacterMode::OnFoot) {
             foot_.yaw = s.yaw; // just got out / up: adopt the server's facing
         }
@@ -75,6 +76,8 @@ void LocalPlayer::reconcile(const Snapshot& snap, VehicleModel vehicleModel, con
         car_.speed = s.vehicleSpeed;
         car_.steer = s.vehicleSteer;
         car_.damage = s.vehicleDamage;
+        car_.verticalSpeed = s.vehicleVerticalSpeed;
+        car_.rotor = s.vehicleRotor;
         for (const InputFrame& f : history_) {
             simulateDriving(car_, vehicleModel_, f, kInputStep, world, obstacles);
         }

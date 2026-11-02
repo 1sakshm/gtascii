@@ -186,6 +186,15 @@ float CityLayout::beachHeight(float lx)
     return kCurbHeight - (kCurbHeight - kSeabed) * std::pow(t, 2.2f);
 }
 
+float CityLayout::waterLevel(float wx, float wz) const
+{
+    const ChunkCoord c = worldToChunk(wx, wz);
+    const float lx = wx - static_cast<float>(c.x) * kChunkSize;
+    const float lz = wz - static_cast<float>(c.z) * kChunkSize;
+    if (surface(c, lx, lz) != Surface::Water) return -1.0e9f;
+    return isCanal(c) ? kCanalWaterLevel : kWaterLevel;
+}
+
 float CityLayout::groundHeight(float wx, float wz) const
 {
     const ChunkCoord c = worldToChunk(wx, wz);
@@ -196,7 +205,11 @@ float CityLayout::groundHeight(float wx, float wz) const
     case Surface::Water:
         if (isCanal(c)) return kCanalFloor;
         if (district(c) == District::Beach) return beachHeight(lx);
-        return kSeabed;
+        {
+            // The sea floor drops off past the beach, so you swim out there.
+            const float out = wx - static_cast<float>((kBeachColumn + 1)) * kChunkSize;
+            return kSeabed + (kDeepSea - kSeabed) * clampv(out / 30.0f, 0.0f, 1.0f);
+        }
     case Surface::Sand: return beachHeight(lx);
     default: return kCurbHeight;
     }

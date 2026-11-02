@@ -25,6 +25,8 @@ VehicleVisuals::VehicleVisuals(const MaterialLibrary& lib)
     hub_ = lib.require("hubcap");
     cabSign_ = lib.require("cab_sign");
     cabYellow_ = lib.require("car_paint_7");
+    heliBody_ = lib.find("heli_body") != kNoMaterial ? lib.find("heli_body") : trim_;
+    rotorMat_ = lib.find("rotor") != kNoMaterial ? lib.find("rotor") : trim_;
 
     // Wheel: tyre with its axle along X, and a hub cross that shows rotation.
     MeshBuilder wb(wheel_);
@@ -39,16 +41,47 @@ VehicleVisuals::VehicleVisuals(const MaterialLibrary& lib)
     }
 }
 
+void VehicleVisuals::buildHelicopter(ModelMeshes& out) const
+{
+    MeshBuilder paint(out.paint), fixed(out.fixed);
+    // Cabin pod, glass nose, tail boom and fin, skids, rotor mast.
+    paint.addBox(AABB({-1.0f, 0.55f, -1.4f}, {1.0f, 2.1f, 1.3f}), kNoMaterial);
+    fixed.addBox(AABB({-0.9f, 0.7f, 1.3f}, {0.9f, 1.95f, 2.4f}), glass_);
+    paint.addBox(AABB({-0.25f, 1.3f, -5.2f}, {0.25f, 1.75f, -1.4f}), kNoMaterial);
+    paint.addBox(AABB({-0.08f, 1.5f, -5.3f}, {0.08f, 2.6f, -4.6f}), kNoMaterial);
+    for (const float x : {-0.85f, 0.85f}) {
+        fixed.addBox(AABB({x - 0.06f, 0.0f, -1.6f}, {x + 0.06f, 0.08f, 1.9f}), trim_);
+        fixed.addBox(AABB({x - 0.05f, 0.08f, -0.8f}, {x + 0.05f, 0.6f, -0.7f}), trim_);
+        fixed.addBox(AABB({x - 0.05f, 0.08f, 0.9f}, {x + 0.05f, 0.6f, 1.0f}), trim_);
+    }
+    fixed.addBox(AABB({-0.12f, 2.1f, -0.12f}, {0.12f, 2.55f, 0.12f}), trim_);
+    fixed.addBox(AABB({-0.5f, 1.0f, -1.42f}, {0.5f, 1.3f, -1.38f}), taillight_);
+    MeshBuilder rotor(out.rotor);
+    rotor.addBox(AABB({-5.2f, -0.03f, -0.18f}, {5.2f, 0.03f, 0.18f}), rotorMat_);
+    rotor.addBox(AABB({-0.18f, -0.03f, -5.2f}, {0.18f, 0.03f, 5.2f}), rotorMat_);
+    MeshBuilder tail(out.tailRotor);
+    tail.addBox(AABB({-0.03f, -0.7f, -0.08f}, {0.03f, 0.7f, 0.08f}), rotorMat_);
+    out.paint.computeBounds();
+    out.fixed.computeBounds();
+    out.rotor.computeBounds();
+    out.tailRotor.computeBounds();
+}
+
 void VehicleVisuals::build(VehicleModel model, ModelMeshes& out) const
 {
+    if (model == VehicleModel::Helicopter) {
+        buildHelicopter(out);
+        return;
+    }
     const VehicleSpec& s = vehicleSpec(model);
     const float hw = s.width * 0.5f, hl = s.length * 0.5f, h = s.height;
     const float floor = s.wheelRadius * 0.55f;
     MeshBuilder paint(out.paint), fixed(out.fixed);
 
     const bool van = model == VehicleModel::Van;
-    const bool coupe = model == VehicleModel::Coupe;
-    const float beltline = van ? h * 0.45f : h * (coupe ? 0.52f : 0.55f);
+    const bool sports = model == VehicleModel::Sports;
+    const bool coupe = model == VehicleModel::Coupe || sports;
+    const float beltline = van ? h * 0.45f : h * (sports ? 0.5f : coupe ? 0.52f : 0.55f);
 
     // Lower body with a slightly lower hood and trunk.
     paint.addBox(AABB({-hw, floor, -hl + 0.9f}, {hw, beltline, hl - 1.0f}), kNoMaterial);
@@ -88,6 +121,12 @@ void VehicleVisuals::build(VehicleModel model, ModelMeshes& out) const
     if (model == VehicleModel::Cab) {
         fixed.addBox(AABB({-0.35f, roof, -0.5f}, {0.35f, roof + 0.22f, -0.2f}), cabSign_);
     }
+    if (sports) {
+        // Rear spoiler on two posts.
+        paint.addBox(AABB({-hw + 0.1f, beltline + 0.18f, -hl + 0.05f}, {hw - 0.1f, beltline + 0.24f, -hl + 0.45f}), kNoMaterial);
+        fixed.addBox(AABB({-0.6f, beltline - 0.08f, -hl + 0.2f}, {-0.5f, beltline + 0.18f, -hl + 0.3f}), trim_);
+        fixed.addBox(AABB({0.5f, beltline - 0.08f, -hl + 0.2f}, {0.6f, beltline + 0.18f, -hl + 0.3f}), trim_);
+    }
     out.paint.computeBounds();
     out.fixed.computeBounds();
 }
@@ -111,6 +150,15 @@ void VehicleVisuals::draw(Renderer& renderer, VehicleModel model, int paint, con
         paintMat = policeBlack_;
     } else if (model == VehicleModel::Cab) {
         paintMat = cabYellow_;
+    }
+    if (model == VehicleModel::Helicopter) {
+        renderer.drawMesh(m.paint, world, heliBody_);
+        renderer.drawMesh(m.fixed, world);
+        // The rotor spins smoothly on the client while the engine runs (steer carries the spool-up).
+        const float angle = state.steer > 0.3f ? flags.time * 22.0f : state.wheelSpin;
+        renderer.drawMesh(m.rotor, world * Mat4::translation({0, 2.6f, 0}) * Mat4::rotationY(angle));
+        renderer.drawMesh(m.tailRotor, world * Mat4::translation({0.3f, 1.9f, -5.0f}) * Mat4::rotationX(angle * 1.7f));
+        return;
     }
     renderer.drawMesh(m.paint, world, paintMat);
     renderer.drawMesh(m.fixed, world);

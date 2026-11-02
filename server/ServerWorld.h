@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Components.h"
+#include "Interiors.h"
 #include "ServerConfig.h"
 
 #include "AI/Navigation.h"
@@ -40,6 +41,8 @@ public:
     void leavePlayer(Entity player);
     void queueInput(Entity player, const std::vector<av::proto::InputFrame>& frames);
     void command(Entity player, av::proto::CommandKind kind, int arg);
+    // A cheat code typed into chat. Returns true if it was one.
+    bool tryCheat(Entity player, const std::string& text);
 
     // ---- simulation ----
     void tick(float dt);
@@ -112,6 +115,22 @@ private:
     // Persistence.cpp
     void loadSave();
 
+    // CombatSystem.cpp: weapons, explosions, loot, cheats, interiors, helicopters.
+    void setupCombat();
+    void updateCombat(float dt);
+    void fireWeapon(Entity shooter, float aimYaw);
+    void explode(const Vec3& at, int weapon, Entity owner);
+    void killed(Entity victim, Entity killer);
+    void spawnDrop(const Vec3& at, std::uint8_t type, int amount, float ttl);
+    void spawnEffect(av::proto::EffectType type, const Vec3& from, const Vec3& to, float ttl);
+    bool interiorInteract(Entity player, InteractionComponent& ic);
+    std::string interiorPrompt(Entity player, const InteractionComponent& ic) const;
+    void giveWeapon(Entity player, int weapon, int ammo);
+    int ammoOf(Entity player, int weapon) const;
+    void collectDrops(Entity player);
+    void updatePoliceGunfire(float dt);
+    Entity spawnHelicopter(const Vec3& at, float yaw);
+
     // ActivitySystem.cpp: street races and cops & robbers.
     void updateActivity(float dt);
     void startRace(Entity requestedBy);
@@ -135,6 +154,10 @@ private:
     std::vector<av::proto::MissionDef> missions_;
     std::vector<Vec3> pickupSpots_;
     std::vector<av::proto::RaceDef> races_;
+    std::vector<av::proto::InteriorDef> interiors_;
+    std::vector<std::pair<Vec3, float>> helipads_;
+    std::vector<Entity> helipadHelis_;
+    float helipadTimer_ = 0.0f;
 
     struct Activity {
         enum Kind { None, Race, CopsAndRobbers } kind = None;

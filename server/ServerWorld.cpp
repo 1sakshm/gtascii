@@ -1,5 +1,7 @@
 #include "ServerWorld.h"
 
+#include "Weapons.h"
+
 #include "Core/FileUtil.h"
 #include "Graphics/ObjLoader.h"
 
@@ -66,6 +68,7 @@ ServerWorld::ServerWorld(const ServerConfig& config, const std::filesystem::path
         pickupSpots_.push_back({x, layout_->groundHeight(x, z), z});
     }
     setupStaticEntities();
+    setupCombat();
     loadSave();
 }
 
@@ -353,6 +356,21 @@ void ServerWorld::command(Entity player, CommandKind kind, int arg)
         startCopsAndRobbers(player);
         return;
     }
+    if (kind == CommandKind::ToggleJetpack) {
+        PlayerComponent* p = reg_.get<PlayerComponent>(player);
+        CharacterComponent* c = reg_.get<CharacterComponent>(player);
+        if (p && c && p->profile) {
+            if (!p->profile->inventory.count("Jetpack")) {
+                notify(player, EventKind::Info, "You don't have a jetpack. Find one on the beach, or try a cheat...");
+            } else if (findInterior(interiors_, c->body.motor.position)) {
+                notify(player, EventKind::Info, "Not indoors!");
+            } else {
+                c->body.jetpack = !c->body.jetpack;
+                notify(player, EventKind::Info, c->body.jetpack ? "Jetpack on - Space up, Z down, Shift fast" : "Jetpack off");
+            }
+        }
+        return;
+    }
     if (kind == CommandKind::SkipHour) {
         if (config_.allowCheats) {
             hour_ = std::fmod(hour_ + 1.0f, 24.0f);
@@ -380,6 +398,7 @@ void ServerWorld::tick(float dt)
 
     updatePlayers(dt);
     updateCharacterModes(dt);
+    updateCombat(dt);
     if (tick_ % 15 == 0) {
         updatePopulation();
     }
@@ -430,7 +449,10 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         s.self.vehicleSpeed = v->state.speed;
         s.self.vehicleSteer = v->state.steer;
         s.self.vehicleDamage = v->state.damage;
+        s.self.vehicleVerticalSpeed = v->state.verticalSpeed;
+        s.self.vehicleRotor = v->state.rotor;
     }
+    s.self.jetpack = me->body.jetpack;
 
     const Vec3 eye = me->body.motor.position;
     struct Item {
@@ -440,7 +462,7 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
     std::vector<Item> items;
     Registry& reg = const_cast<Registry&>(reg_);
     auto inRange = [&eye](const Vec3& p, float& d) {
-        d = length(Vec3{p.x - eye.x, 0, p.z - eye.z});
+        d = length(p - eye); // 3D: rooms upstairs do not see the street (and vice versa)
         return d < kInterestRadius;
     };
 
@@ -463,6 +485,9 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         st.speed = std::sqrt(v.x * v.x + v.z * v.z);
         st.verticalSpeed = v.y;
         st.vehicle = netIdOf(c.vehicle);
+        st.subtype = c.weapon;
+        if (c.body.jetpack) st.flags |= EntityFlags::Jetpack;
+        if (c.dead) st.flags |= EntityFlags::Dead;
         if (const PlayerComponent* pl = reg_.get<PlayerComponent>(e)) {
             st.flags |= EntityFlags::Player;
             if (pl->role == "cop") st.flags |= EntityFlags::Police;
@@ -486,7 +511,7 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         st.yaw = v.state.yaw;
         st.model = static_cast<std::uint8_t>(v.model);
         st.paint = static_cast<std::uint8_t>(v.paint);
-        st.steer = v.state.steer;
+        st.steer = v.model == VehicleModel::Helicopter ? v.state.rotor : v.state.steer;
         st.wheelSpin = v.state.wheelSpin < 0 ? v.state.wheelSpin + kTwoPi : v.state.wheelSpin;
         st.pitch = v.state.pitch;
         st.roll = v.state.roll;
@@ -502,6 +527,9 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         float d;
         if (!t || !inRange(t->position, d)) {
             return;
+        }
+        if (ic.kind == MarkerKind::None) {
+            return; // furniture you can use, not a visible marker
         }
         if (ic.kind == MarkerKind::MissionStart && pc->mission.index >= 0) {
             return; // hide other mission starts while on a mission
@@ -524,6 +552,51 @@ Snapshot ServerWorld::buildSnapshot(Entity player) const
         st.kind = EntityKind::Pickup;
         st.position = t->position;
         items.push_back({d * 1.3f, st});
+    });
+
+    reg.each<DropComponent>([&](Entity e, DropComponent& dc) {
+        const TransformComponent* t = reg_.get<TransformComponent>(e);
+        float d;
+        if (!t || dc.respawn > 0.0f || !inRange(t->position, d)) {
+            return;
+        }
+        EntityState st;
+        st.netId = netIdOf(e);
+        st.kind = EntityKind::Pickup;
+        st.position = t->position;
+        st.subtype = dc.type;
+        items.push_back({d * 1.1f, st});
+    });
+    reg.each<EffectComponent>([&](Entity e, EffectComponent& fx) {
+        const TransformComponent* t = reg_.get<TransformComponent>(e);
+        float d;
+        if (!t || !inRange(t->position, d)) {
+            return;
+        }
+        EntityState st;
+        st.netId = netIdOf(e);
+        st.kind = EntityKind::Effect;
+        st.position = t->position;
+        st.subtype = static_cast<std::uint8_t>(fx.type);
+        const Vec3 span = fx.to - t->position;
+        st.yaw = std::atan2(span.x, span.z);
+        st.speed = std::sqrt(span.x * span.x + span.z * span.z);
+        st.verticalSpeed = span.y;
+        items.push_back({d * 0.5f, st}); // short-lived and important
+    });
+    reg.each<ProjectileComponent>([&](Entity e, ProjectileComponent& pr) {
+        const TransformComponent* t = reg_.get<TransformComponent>(e);
+        float d;
+        if (!t || !inRange(t->position, d)) {
+            return;
+        }
+        EntityState st;
+        st.netId = netIdOf(e);
+        st.kind = EntityKind::Effect;
+        st.position = t->position;
+        st.subtype = static_cast<std::uint8_t>(pr.weapon == Grenades ? EffectType::Grenade : EffectType::Rocket);
+        st.yaw = t->yaw;
+        items.push_back({d * 0.5f, st});
     });
 
     std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.d < b.d; });
@@ -551,6 +624,15 @@ PlayerStatus ServerWorld::buildStatus(Entity player) const
     st.missionsTotal = static_cast<std::uint16_t>(missions_.size());
     st.playSeconds = static_cast<std::uint32_t>(p->profile->playSeconds);
     st.frozen = p->frozen ? 1 : 0;
+    st.god = p->god ? 1 : 0;
+    st.weaponsOwned = 1;
+    for (int w = 1; w < kWeaponCount; ++w) {
+        if (ammoOf(player, w) > 0) st.weaponsOwned = static_cast<std::uint16_t>(st.weaponsOwned | (1u << w));
+    }
+    if (const CharacterComponent* pc = reg_.get<CharacterComponent>(player)) {
+        st.weapon = pc->weapon;
+        st.ammo = static_cast<std::uint16_t>(usesAmmo(pc->weapon) ? std::min(ammoOf(player, pc->weapon), 65535) : 0);
+    }
     st.pickupsTotal = static_cast<std::uint16_t>(pickupSpots_.size());
     for (const auto& [item, count] : p->profile->inventory) {
         if (count > 0) {

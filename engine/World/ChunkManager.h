@@ -44,7 +44,11 @@ public:
 
     // CollisionWorld
     float groundHeight(float x, float z) const override;
+    float waterLevel(float x, float z) const override;
     void gatherColliders(const AABB& region, std::vector<AABB>& out) const override;
+
+    // Solid boxes that are not part of any chunk (interiors, the map edge).
+    std::vector<AABB> extraColliders;
 
 private:
     const CityGenerator& generator_;

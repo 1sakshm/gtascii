@@ -112,6 +112,17 @@ int main(int argc, char** argv)
                 direct = true;
             } else if (a == "--relay") {
                 opts.config.lobby = need("--relay");
+            } else if (a == "--exec") { // hidden: chat lines (cheats) to send, separated by ';'
+                std::string list = need("--exec");
+                for (std::size_t at = 0; at <= list.size();) {
+                    const std::size_t semi = std::min(list.find(';', at), list.size());
+                    if (semi > at) opts.execLines.push_back(list.substr(at, semi - at));
+                    at = semi + 1;
+                }
+            } else if (a == "--weapon") { // hidden
+                opts.startWeapon = std::atoi(need("--weapon"));
+            } else if (a == "--fire") { // hidden
+                opts.holdFire = true;
             } else if (a == "--list-rooms") { // hidden: relay check for CI / debugging
                 listOnline = true;
             } else if (a == "--room") {

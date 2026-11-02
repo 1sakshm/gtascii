@@ -6,6 +6,7 @@ add_executable(gtascii
     LocalPlayer.cpp
     Lobby.cpp
     Relay.cpp
+    CombatVisuals.cpp
     Menu.cpp
     Recorder.cpp
     NetClient.cpp

@@ -72,6 +72,59 @@ void CharacterMotor::resolveHorizontal(float height, Vec3& hv)
     }
 }
 
+void CharacterMotor::stepFree(const Vec3& desired, float responsiveness, float dt, const CollisionWorld& world)
+{
+    landingImpact_ = 0.0f;
+    if (dt <= 0.0f) {
+        return;
+    }
+    Vec3 diff = desired - velocity;
+    const float maxDelta = responsiveness * dt;
+    if (length(diff) > maxDelta) {
+        diff = normalize(diff) * maxDelta;
+    }
+    velocity += diff;
+    Vec3 hv{velocity.x, 0.0f, velocity.z};
+    const Vec3 move = hv * dt;
+    const float moveLen = length(move);
+    const float height = settings_.height;
+    AABB region({position.x - settings_.radius - moveLen - 1.0f, position.y - 2.0f, position.z - settings_.radius - moveLen - 1.0f},
+                {position.x + settings_.radius + moveLen + 1.0f, position.y + height + 2.0f, position.z + settings_.radius + moveLen + 1.0f});
+    nearby_.clear();
+    world.gatherColliders(region, nearby_);
+    const int steps = std::max(1, static_cast<int>(std::ceil(moveLen / (settings_.radius * 0.5f))));
+    for (int i = 0; i < steps; ++i) {
+        position.x += move.x / static_cast<float>(steps);
+        position.z += move.z / static_cast<float>(steps);
+        resolveHorizontal(height, hv);
+    }
+    velocity.x = hv.x;
+    velocity.z = hv.z;
+    const float previousY = position.y;
+    position.y += velocity.y * dt;
+    const float ground = findGround(world, std::max(previousY, position.y) + settings_.stepHeight);
+    if (position.y <= ground) {
+        position.y = ground;
+        velocity.y = std::max(0.0f, velocity.y);
+        grounded_ = true;
+    } else {
+        grounded_ = false;
+    }
+    // Ceilings.
+    if (velocity.y > 0.0f) {
+        for (const AABB& b : nearby_) {
+            const float cx = clampv(position.x, b.min.x, b.max.x);
+            const float cz = clampv(position.z, b.min.z, b.max.z);
+            const float dx = position.x - cx, dz = position.z - cz;
+            if (dx * dx + dz * dz < settings_.radius * settings_.radius && previousY + height <= b.min.y + 1e-3f &&
+                position.y + height > b.min.y) {
+                position.y = b.min.y - height;
+                velocity.y = 0.0f;
+            }
+        }
+    }
+}
+
 void CharacterMotor::step(const Vec3& desired, bool jump, bool crouching, float dt, const CollisionWorld& world)
 {
     landingImpact_ = 0.0f;

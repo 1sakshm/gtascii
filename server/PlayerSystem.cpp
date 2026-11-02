@@ -2,6 +2,8 @@
 // character state machine (entering / seated / exiting / knocked down).
 #include "ServerWorld.h"
 
+#include "Weapons.h"
+
 #include <cmath>
 
 namespace server {
@@ -74,7 +76,11 @@ void ServerWorld::applyInput(Entity e, const InputFrame& in)
     case CharacterMode::OnFoot: {
         c->crouch = in.has(Buttons::Crouch);
         c->run = in.has(Buttons::Run);
+        if (in.weapon != c->weapon && isWeapon(in.weapon) && ammoOf(e, in.weapon) > 0) {
+            c->weapon = in.weapon;
+        }
         simulateOnFoot(c->body, in, kInputStep, *dynamicWorld_);
+        if (in.has(Buttons::Fire) && !c->body.swimming) fireWeapon(e, in.aimYaw());
         const float impact = c->body.motor.landingImpact();
         if (impact > 12.0f && p->fallDamageCooldown <= 0.0f) {
             damage(e, (impact - 12.0f) * 6.0f, kNullEntity);
@@ -83,7 +89,7 @@ void ServerWorld::applyInput(Entity e, const InputFrame& in)
         if (in.has(Buttons::Wave)) c->trigger(1);
         if (in.has(Buttons::Punch)) punch(e);
         if (in.has(Buttons::EnterExit)) tryEnterOrExit(e);
-        if (in.has(Buttons::Interact)) interact(e);
+        if (in.has(Buttons::Interact) && !(p->lastButtons & Buttons::Interact)) interact(e); // press, not hold
         break;
     }
     case CharacterMode::InVehicle: {
@@ -307,19 +313,19 @@ void ServerWorld::punch(Entity e)
 
 void ServerWorld::damage(Entity target, float amount, Entity attacker)
 {
-    (void)attacker;
     HealthComponent* h = reg_.get<HealthComponent>(target);
-    if (!h || amount <= 0.0f) {
+    if (!h || amount <= 0.0f || h->health <= 0.0f) {
+        return;
+    }
+    if (const PlayerComponent* p = reg_.get<PlayerComponent>(target); p && p->god) {
         return;
     }
     h->health -= amount;
     h->sinceDamage = 0.0f;
     if (h->health <= 0.0f) {
+        killed(target, attacker); // drops cash and weapons where they fell
         if (reg_.has<PlayerComponent>(target)) {
             hospitalize(target);
-        } else if (CharacterComponent* c = reg_.get<CharacterComponent>(target)) {
-            c->mode = CharacterMode::KnockedDown;
-            c->modeTimer = 8.0f; // NPCs stay down, then are cleaned up by the population system
         }
     }
 }

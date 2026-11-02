@@ -2,6 +2,7 @@
 # single player) plus the dedicated server executable.
 add_library(av_server STATIC
     ActivitySystem.cpp
+    CombatSystem.cpp
     GameServer.cpp
     MissionSystem.cpp
     NpcSystem.cpp

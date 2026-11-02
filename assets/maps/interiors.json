@@ -1,0 +1,12 @@
+// Enterable buildings. "chunk" is [x, z] in 64 m chunks and "door" a
+// chunk-local [x, z] on the sidewalk; "facing" is the way you face when you
+// walk out (north = +z, east = +x, south = -z, west = -x).
+// kind: home, office, club, casino.
+{
+    "interiors": [
+        {"kind": "home",   "name": "Your Apartment",       "chunk": [0, 0],  "door": [27.0, 17.5], "facing": "south"},
+        {"kind": "office", "name": "Vice Tower Offices",   "chunk": [0, -2], "door": [32.0, 7.0],  "facing": "south"},
+        {"kind": "club",   "name": "Club Malibu",          "chunk": [2, -1], "door": [57.0, 32.0], "facing": "east"},
+        {"kind": "casino", "name": "Flamingo Casino",      "chunk": [2, 1],  "door": [57.0, 24.0], "facing": "east"}
+    ]
+}

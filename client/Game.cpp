@@ -1,9 +1,13 @@
 #include "Game.h"
 
+#include "Interiors.h"
+#include "Weapons.h"
+
 #include "GameHud.h"
 #include "LocalPlayer.h"
 #include "Missions.h"
 #include "NetClient.h"
+#include "CombatVisuals.h"
 #include "Recorder.h"
 #include "Relay.h"
 #include "RemoteWorld.h"
@@ -83,7 +87,7 @@ struct Autopilot {
 };
 
 // ---- the phone -------------------------------------------------------------
-enum class PhoneScreen { Closed, Home, Jobs, Stats };
+enum class PhoneScreen { Closed, Home, Jobs, Stats, Cheats };
 
 std::string distanceText(float metres)
 {
@@ -204,6 +208,15 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
     CharacterLooks looks(materials);
     RemoteWorld remote(materials, looks);
     CharacterAnimation myAnim;
+    const std::vector<InteriorDef> interiors = loadInteriors(root / "assets/maps/interiors.json");
+    world.extraColliders = staticExtraColliders(interiors);
+    CombatVisuals combat(materials);
+    combat.buildInteriors(interiors);
+    remote.combat = &combat;
+    int wantWeapon = 0;
+    bool execSent = false;
+    float localFireTimer = 0.0f;
+    double lastEffectSound = 0.0;
 
     LocalPlayer me;
     world.loadAll(layout.spawn().position);
@@ -337,6 +350,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                                       }
                                   }});
             phoneItems.push_back({"Stats", [&] { phone = PhoneScreen::Stats; phoneSel = 0; }});
+            phoneItems.push_back({"Jetpack on/off (J)", [&] { net.sendCommand(CommandKind::ToggleJetpack, 0); phone = PhoneScreen::Closed; }});
+            phoneItems.push_back({"Cheat codes", [&] { phone = PhoneScreen::Cheats; phoneSel = 0; }});
             if (hasWaypoint) phoneItems.push_back({"Clear GPS waypoint", [&] { hasWaypoint = false; }});
         } else if (phone == PhoneScreen::Jobs) {
             phoneTitle = "JOBS";
@@ -360,6 +375,14 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             phoneItems.push_back({"Flamingos: " + std::to_string(status.pickupsFound) + "/" + std::to_string(status.pickupsTotal), nullptr});
             phoneItems.push_back({"Play time: " + std::to_string(mins / 60) + "h " + std::to_string(mins % 60) + "m", nullptr});
             phoneItems.push_back({"Room: " + welcome.roomName + " (" + welcome.roomCode + ")", nullptr});
+        } else if (phone == PhoneScreen::Cheats) {
+            phoneTitle = "CHEATS (type in chat)";
+            for (const char* line : {"FULLCLIP  all weapons", "HEALME    full health", "RICHBOY   +$50,000", "CALMDOWN  lose the cops",
+                                     "MAXWANTED five stars", "FLYBOY    helicopter", "ROCKETMAN jetpack", "SPEEDY    sports car",
+                                     "IAMGOD    invincible", "SUNRISE   morning", "MIDNIGHT  night", "BOOMTOWN  blow up cars",
+                                     "LETSPARTY to the club", "HIGHROLLER to the casino"}) {
+                phoneItems.push_back({line, nullptr});
+            }
         }
 
         if (!chatting) {
@@ -382,7 +405,7 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                     phoneSel = 0;
                 }
             } else {
-                if (input.pressed(Key::Escape) || input.pressed(U'q')) running = false;
+                if (input.pressed(Key::Escape)) running = false;
                 if (input.pressed(Key::Enter)) {
                     chatting = true;
                     input.releaseAll();
@@ -399,7 +422,27 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             if (input.pressed(U' ')) pendingEdges |= Buttons::Jump;
             if (input.pressed(U'e')) pendingEdges |= Buttons::Interact;
             if (input.pressed(U'f')) { pendingEdges |= Buttons::EnterExit; audio.play(Sound::Door, 0.6f); }
-            if (input.pressed(U'x')) { pendingEdges |= Buttons::Punch; audio.play(Sound::Punch, 0.7f); }
+            for (int k = 0; k < kWeaponCount; ++k) {
+                const char32_t key = k == 10 ? U'0' : static_cast<char32_t>(U'0' + k); // 1-9, 0 = grenades; ` = fists
+                if (k > 0 && input.pressed(key)) {
+                    if (status.weaponsOwned & (1u << k)) {
+                        wantWeapon = k;
+                    } else {
+                        toasts.push_back({std::string("You don't have the ") + weaponDef(k).name, {200, 200, 210}, 2.0f});
+                    }
+                }
+            }
+            if (input.pressed(U'`')) wantWeapon = 0;
+            if (input.pressed(U'q')) { // next weapon you own
+                for (int step = 1; step <= kWeaponCount; ++step) {
+                    const int k = (wantWeapon + step) % kWeaponCount;
+                    if (status.weaponsOwned & (1u << k)) {
+                        wantWeapon = k;
+                        break;
+                    }
+                }
+            }
+            if (input.pressed(U'j')) net.sendCommand(CommandKind::ToggleJetpack, 0);
             if (input.pressed(U'g')) pendingEdges |= Buttons::Wave;
             if (input.pressed(U'o')) {
                 rs.outlines = !rs.outlines;
@@ -444,7 +487,8 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                 if (input.held(U'd')) steer -= 1.0f;
                 base.throttle = toS8(throttle);
                 base.steer = toS8(steer);
-                if (input.held(U' ')) base.buttons |= Buttons::Handbrake;
+                if (input.held(U' ')) base.buttons |= Buttons::Handbrake | Buttons::Ascend;
+                if (input.held(U'z')) base.buttons |= Buttons::Descend;
             } else {
                 Vec3 move;
                 if (input.held(U'w')) move += camera.forwardXZ();
@@ -454,6 +498,13 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
                 move = normalize(move);
                 base.moveX = toS8(move.x);
                 base.moveZ = toS8(move.z);
+                if (input.held(U'x')) base.buttons |= Buttons::Fire;
+                if (input.held(U' ')) base.buttons |= Buttons::Ascend;
+                if (input.held(U'z')) base.buttons |= Buttons::Descend;
+            }
+            {
+                const Vec3 f = camera.forwardXZ();
+                base.aim = toS8(std::atan2(f.x, f.z) / kPi);
             }
             if (alwaysRun != input.shiftHeld()) base.buttons |= Buttons::Run;
             if (crouch) base.buttons |= Buttons::Crouch;
@@ -469,8 +520,30 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         const std::uint16_t autoEdges = base.buttons & (Buttons::Jump | Buttons::EnterExit | Buttons::Wave | Buttons::Punch | Buttons::Interact);
         base.buttons = static_cast<std::uint16_t>(base.buttons & ~autoEdges);
         pendingEdges |= autoEdges;
+        base.weapon = static_cast<std::uint8_t>((status.weaponsOwned & (1u << wantWeapon)) ? wantWeapon : 0);
         if (status.frozen) {
             base = InputFrame{}; // race countdown: the server ignores input anyway
+        }
+        if (!opts.execLines.empty() && now > 1.0 && !execSent) {
+            execSent = true;
+            for (const std::string& line : opts.execLines) net.sendChat(line);
+        }
+        if (opts.startWeapon > 0 && (status.weaponsOwned & (1u << opts.startWeapon)) && wantWeapon == 0) {
+            wantWeapon = opts.startWeapon;
+            base.weapon = static_cast<std::uint8_t>(wantWeapon);
+        }
+        if (opts.holdFire && now > 2.0 && me.mode() == CharacterMode::OnFoot) base.buttons |= Buttons::Fire;
+        // Your own shots: sound and swing right away (the server decides the hits).
+        localFireTimer = std::max(0.0f, localFireTimer - dt);
+        if ((base.buttons & Buttons::Fire) && localFireTimer <= 0.0f && me.mode() == CharacterMode::OnFoot && !me.swimming()) {
+            const WeaponDef& wd = weaponDef(status.weapon);
+            localFireTimer = wd.interval;
+            if (wd.kind == WeaponKind::Melee) {
+                audio.play(Sound::Punch, 0.7f);
+                localAction = static_cast<std::uint8_t>((((localAction >> 2) + 1) << 2) | 2);
+            } else if (status.ammo > 0) {
+                audio.play(wd.kind == WeaponKind::Gun ? Sound::Gunshot : Sound::Swoosh, wd.kind == WeaponKind::Gun ? 0.5f : 0.7f);
+            }
         }
 
         // ---- prediction + send (fixed 60 Hz input steps) ----
@@ -637,6 +710,18 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             }
         }
 
+        for (const auto& [id, e] : remote.entities()) {
+            if (e.current.kind != EntityKind::Effect || e.firstSeen <= lastEffectSound) continue;
+            const float d = distance(e.current.position, me.position());
+            if (e.current.subtype == static_cast<std::uint8_t>(EffectType::Explosion)) {
+                audio.play(Sound::Explosion, std::clamp(1.0f - d / 120.0f, 0.1f, 1.0f));
+            } else if (e.current.subtype == static_cast<std::uint8_t>(EffectType::Tracer) && d > 2.0f) {
+                audio.play(Sound::Gunshot, std::clamp(0.5f - d / 160.0f, 0.05f, 0.5f));
+            }
+        }
+        lastEffectSound = now;
+        const InteriorDef* inside = findInterior(interiors, me.position());
+
         // ---- render ----
         const Camera cam = camera.camera();
         SceneLighting light = SceneLighting::timeOfDay(hour);
@@ -644,9 +729,18 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
         light.fogStart = cfg.fogStart;
         light.fogEnd = cfg.fogEnd;
         for (const auto& [coord, chunk] : world.chunks()) {
+            if (inside) break; // indoors the street lamps don't reach
             for (const PointLight& l : chunk->lights) {
                 if (distance(l.position, cam.position) < 90.0f) light.pointLights.push_back(l);
             }
+        }
+        combat.interiorLights(cam.position, light.pointLights);
+        if (inside) {
+            light.skyAmbient = light.skyAmbient * 0.35f + Vec3{0.2f, 0.18f, 0.16f};
+            light.sunColor = light.sunColor * 0.25f;
+        }
+        for (const auto& [id, e] : remote.entities()) {
+            if (e.current.kind == EntityKind::Effect) combat.effectLight(e.current, static_cast<float>(now - e.firstSeen), light.pointLights);
         }
         for (const auto& [id, e] : remote.entities()) {
             if (e.current.kind != EntityKind::Vehicle || distance(e.current.position, cam.position) > 70.0f) continue;
@@ -660,8 +754,9 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
 
         const TerminalSize ts = terminal.size();
         renderer.beginFrame(ts.cols, ts.rows, cam, light);
+        combat.drawInteriors(renderer, cam.position);
         for (const auto& [coord, chunk] : world.chunks()) {
-            if (!renderer.isVisible(chunk->worldBounds)) continue;
+            if (inside || !renderer.isVisible(chunk->worldBounds)) continue;
             const Mat4 model = Mat4::translation(chunk->origin());
             renderer.drawMesh(chunk->baseMesh, model);
             const Vec3 centre = chunk->origin() + Vec3{kChunkSize * 0.5f, 0, kChunkSize * 0.5f};
@@ -678,7 +773,12 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             // In cops & robbers, cops wear the uniform.
             const bool copLook = std::any_of(net.scores().begin(), net.scores().end(),
                                              [&](const ScoreEntry& s) { return s.name == cfg.playerName && s.role == "cop"; });
-            looks.get(cfg.appearanceSeed, copLook).draw(renderer, Mat4::translation(meState.position) * Mat4::rotationY(meState.yaw), myAnim.joints);
+            const Mat4 meWorld = Mat4::translation(meState.position) * Mat4::rotationY(meState.yaw);
+            looks.get(cfg.appearanceSeed, copLook).draw(renderer, meWorld, myAnim.joints);
+            if (!inVehicle) {
+                combat.drawHeld(renderer, meWorld, myAnim.joints, status.weapon);
+                if (me.jetpack()) combat.drawJetpack(renderer, meWorld, myAnim.joints, !me.grounded(), static_cast<float>(now));
+            }
         }
         if (status.marker != MarkerKind::None) {
             remote.drawMarker(renderer, status.markerPosition, status.marker, static_cast<float>(now));
@@ -699,15 +799,48 @@ RunSummary runGame(const LaunchOptions& opts, Terminal& terminal, Audio& audio)
             }
         }
 
+        // Auto-aim: mark who your shots would go to.
+        if (!inVehicle && status.weapon != 0 && weaponDef(status.weapon).kind != WeaponKind::Melee) {
+            const WeaponDef& wd = weaponDef(status.weapon);
+            const Vec3 fwd = camera.forwardXZ();
+            const Vec3 from = me.position() + Vec3{0, 1.4f, 0};
+            const RemoteWorld::Entity* best = nullptr;
+            float bestScore = 1e9f;
+            for (const auto& [id, e] : remote.entities()) {
+                if (e.current.kind != EntityKind::Character || (e.current.flags & EntityFlags::Dead) || e.current.mode == CharacterMode::InVehicle) continue;
+                const Vec3 to = e.current.position + Vec3{0, 1.3f, 0} - from;
+                const float dist = length(to);
+                if (dist > wd.range || dist < 0.5f) continue;
+                const float angle = std::acos(std::clamp(dot(normalize(Vec3{to.x, 0, to.z}), fwd), -1.0f, 1.0f));
+                if (angle > std::max(wd.aimCone, 0.6f / std::max(dist, 1.0f))) continue;
+                const float score = angle + dist * 0.004f;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = &e;
+                }
+            }
+            if (best) {
+                drawNameTag(fb, renderer.viewProjection(), cam.position, best->current.position + Vec3{0, 2.0f, 0}, "[ + ]", {255, 70, 70});
+            }
+        }
+
         if (showHud) {
             HudInfo info;
             const ChunkCoord cc = worldToChunk(me.position());
-            info.neighborhood = layout.neighborhood(cc);
+            info.neighborhood = inside ? inside->name : layout.neighborhood(cc);
             info.landmark = landmark;
             info.hour = hour;
             info.position = me.position();
             info.activity = driving ? std::string("driving ") + vehicleSpec(me.vehicleModel()).name
                                     : inVehicle ? std::string("passenger") : toString(myAnim.animator.state());
+            if (me.mode() == CharacterMode::OnFoot && me.jetpack()) info.activity = "jetpack";
+            if (me.mode() == CharacterMode::OnFoot && me.swimming()) info.activity = "swimming";
+            {
+                const WeaponDef& wd = weaponDef(status.weapon);
+                info.activity += std::string("  ") + wd.shortName;
+                if (usesAmmo(status.weapon)) info.activity += " " + std::to_string(status.ammo);
+                if (status.god) info.activity += "  GOD";
+            }
             if (recorder.active()) info.activity += "  [REC]";
             info.running = (base.buttons & Buttons::Run) != 0;
             info.fps = clock.smoothedFps();

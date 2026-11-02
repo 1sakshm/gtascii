@@ -16,6 +16,15 @@ public:
     // Terrain surface height (not including boxes) at a world position.
     virtual float groundHeight(float x, float z) const = 0;
 
+    // Water surface height at a world position, or a very low value where
+    // there is no water (swimming, drowning).
+    virtual float waterLevel(float x, float z) const
+    {
+        (void)x;
+        (void)z;
+        return -1.0e9f;
+    }
+
     // Appends every solid box that may intersect `region`.
     virtual void gatherColliders(const AABB& region, std::vector<AABB>& out) const = 0;
 

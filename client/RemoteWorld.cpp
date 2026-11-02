@@ -1,5 +1,7 @@
 #include "RemoteWorld.h"
 
+#include "CombatVisuals.h"
+
 #include "Graphics/Renderer.h"
 
 #include <cmath>
@@ -83,8 +85,9 @@ RemoteWorld::RemoteWorld(MaterialLibrary& materials, CharacterLooks& looks)
     fb.addCylinder({0, 0.0f, 0.02f}, 0.45f, 0.025f, 0.025f, 4, kNoMaterial, false);
     fb.addCylinder({0, 0.6f, 0.15f}, 0.35f, 0.035f, 0.03f, 4, kNoMaterial, false, Mat4::rotationX(0.25f));
     fb.addEllipsoid({0, 1.0f, 0.24f}, {0.06f, 0.06f, 0.08f}, 4, 6, kNoMaterial);
-    const char* names[6] = {"marker_pink", "marker_pink", "marker_yellow", "marker_yellow", "marker_cyan", "marker_green"};
-    for (int i = 0; i < 6; ++i) {
+    const char* names[8] = {"marker_pink", "marker_pink", "marker_yellow", "marker_yellow", "marker_cyan", "marker_green",
+                            "marker_orange", "marker_cyan"};
+    for (int i = 0; i < 8; ++i) {
         markerMats_[i] = materials.require(names[i]);
     }
     pickupMat_ = materials.require("pickup_pink");
@@ -111,6 +114,7 @@ void RemoteWorld::ingest(const Snapshot& snap, double localTime)
         ent.lastSeen = localTime;
         if (ent.samples.size() == 1) {
             ent.current = e;
+            ent.firstSeen = localTime;
         }
     }
 }
@@ -172,14 +176,21 @@ void RemoteWorld::vehicleObstacles(std::vector<AABB>& out, std::uint16_t exclude
 
 void RemoteWorld::drawMarker(Renderer& renderer, const Vec3& position, MarkerKind kind, float time) const
 {
-    const MaterialId mat = markerMats_[std::min<int>(static_cast<int>(kind), 5)];
+    const MaterialId mat = markerMats_[std::min<int>(static_cast<int>(kind), 7)];
     const Mat4 base = Mat4::translation(position);
     // Objectives get a tall beam so they can be found from afar; places you
     // walk into get a ground ring and a floating diamond.
     if (kind == MarkerKind::Objective || kind == MarkerKind::Checkpoint) {
         renderer.drawMesh(beam_, base, mat);
     }
+    if (kind == MarkerKind::Helipad) {
+        renderer.drawMesh(ring_, base * Mat4::scale({5.0f, 1.0f, 5.0f}), mat); // a big circle to land in
+        return;
+    }
     renderer.drawMesh(ring_, base * Mat4::rotationY(time * 1.5f), mat);
+    if (kind == MarkerKind::Door) {
+        return; // doors: just the glowing ring on the floor (no diamond in the camera's face indoors)
+    }
     renderer.drawMesh(diamond_, base * Mat4::translation({0, 1.7f + 0.12f * std::sin(time * 2.5f), 0}) * Mat4::rotationY(time * 2.0f), mat);
 }
 
@@ -195,6 +206,10 @@ void RemoteWorld::draw(Renderer& renderer, const VehicleVisuals& vehicles, float
             const bool police = (s.flags & EntityFlags::Police) != 0;
             const Mat4 world = Mat4::translation(s.position) * Mat4::rotationY(s.yaw);
             looks_.get(s.appearance, police).draw(renderer, world, e.anim.joints);
+            if (combat && s.mode != CharacterMode::InVehicle) {
+                combat->drawHeld(renderer, world, e.anim.joints, s.subtype);
+                if (s.flags & EntityFlags::Jetpack) combat->drawJetpack(renderer, world, e.anim.joints, !s.grounded, time);
+            }
             break;
         }
         case EntityKind::Vehicle: {
@@ -218,7 +233,14 @@ void RemoteWorld::draw(Renderer& renderer, const VehicleVisuals& vehicles, float
         case EntityKind::Marker:
             drawMarker(renderer, s.position, static_cast<MarkerKind>(s.subtype), time);
             break;
+        case EntityKind::Effect:
+            if (combat) combat->drawEffect(renderer, s, time - static_cast<float>(e.firstSeen), time);
+            break;
         case EntityKind::Pickup: {
+            if (s.subtype != PickupType::Flamingo) {
+                if (combat) combat->drawPickup(renderer, s, time);
+                break;
+            }
             const Mat4 m = Mat4::translation(s.position + Vec3{0, 0.3f + 0.15f * std::sin(time * 2.5f), 0}) *
                            Mat4::rotationY(time * 1.8f);
             renderer.drawMesh(flamingo_, m, pickupMat_);

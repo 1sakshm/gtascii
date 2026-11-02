@@ -119,6 +119,11 @@ std::vector<Buffer> synthesise()
     addNoise(at(Sound::Door), 0.05f, 0.08f, 0.4f, 60, 0.5f, 5);
     addTone(at(Sound::Countdown), 0, 0.25f, noteHz(72), 0.35f, 1, 8);
     addTone(at(Sound::Go), 0, 0.5f, noteHz(84), 0.35f, 1, 4);
+    addNoise(at(Sound::Gunshot), 0, 0.12f, 1.0f, 30, 0.2f, 2);
+    addSweep(at(Sound::Gunshot), 0, 0.08f, 220, 70, 0.6f, 30);
+    addNoise(at(Sound::Explosion), 0, 1.2f, 1.0f, 3, 0.6f, 6);
+    addSweep(at(Sound::Explosion), 0, 0.9f, 90, 30, 0.9f, 3);
+    addNoise(at(Sound::Swoosh), 0, 0.35f, 0.5f, 8, 0.8f, 1);
     return s;
 }
 

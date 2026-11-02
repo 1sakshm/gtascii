@@ -78,7 +78,8 @@ Entity ServerWorld::spawnTrafficCar(const Vec3& near, float minDist, float maxDi
         return kNullEntity;
     }
     const float r = rng_.uniform();
-    const VehicleModel model = r < 0.45f ? VehicleModel::Sedan : r < 0.65f ? VehicleModel::Cab : r < 0.82f ? VehicleModel::Van : VehicleModel::Coupe;
+    const VehicleModel model = r < 0.43f ? VehicleModel::Sedan : r < 0.62f ? VehicleModel::Cab : r < 0.79f ? VehicleModel::Van
+                             : r < 0.95f ? VehicleModel::Coupe : VehicleModel::Sports;
     const Vec3 dir = headingVector(h);
     const Entity car = spawnVehicle(model, rng_.rangeInt(0, 7), start, std::atan2(dir.x, dir.z));
     DriverAIComponent ai;
@@ -113,7 +114,7 @@ void ServerWorld::updatePopulation()
         if (!n || !c || n->driver || n->police) {
             continue;
         }
-        const bool dead = h && h->health <= 0.0f && c->mode != CharacterMode::KnockedDown;
+        const bool dead = h && h->health <= 0.0f && (c->mode != CharacterMode::KnockedDown || c->modeTimer <= 0.0f);
         if (dead || distanceToNearestPlayer(c->body.motor.position) > 140.0f) {
             destroyEntity(e);
         }
@@ -192,7 +193,7 @@ void ServerWorld::updatePedestrians(float dt)
     std::vector<Entity> idle; // candidates for conversations
     reg_.each<NPCComponent>([&](Entity e, NPCComponent& n) {
         CharacterComponent* c = reg_.get<CharacterComponent>(e);
-        if (!c || n.driver || n.police || c->mode != CharacterMode::OnFoot) {
+        if (!c || n.driver || n.police || n.dancer || c->mode != CharacterMode::OnFoot) {
             return;
         }
         const Vec3 pos = c->body.motor.position;
@@ -324,8 +325,9 @@ void ServerWorld::resolveVehicleContacts()
         const auto circles = vehicleCircles(v->state, spec);
         for (const Entity ce : reg_.entitiesWith<CharacterComponent>()) {
             CharacterComponent* c = reg_.get<CharacterComponent>(ce);
-            if (!c || c->mode != CharacterMode::OnFoot || c->vehicle == ve) {
-                continue;
+            if (!c || c->mode != CharacterMode::OnFoot || c->vehicle == ve ||
+                std::fabs(c->body.motor.position.y - v->state.position.y) > 1.6f) {
+                continue; // (helicopters overhead)
             }
             bool hit = false;
             for (const Vec3& circle : circles) {
@@ -352,7 +354,8 @@ void ServerWorld::resolveVehicleContacts()
         VehicleComponent* a = reg_.get<VehicleComponent>(cars[i]);
         for (std::size_t j = i + 1; j < cars.size() && a; ++j) {
             VehicleComponent* b = reg_.get<VehicleComponent>(cars[j]);
-            if (!b || lengthSq(a->state.position - b->state.position) > 36.0f) {
+            if (!b || lengthSq(a->state.position - b->state.position) > 36.0f ||
+                std::fabs(a->state.position.y - b->state.position.y) > 2.0f) {
                 continue;
             }
             const float ra = vehicleSpec(a->model).width * 0.5f, rb = vehicleSpec(b->model).width * 0.5f;

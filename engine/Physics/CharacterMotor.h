@@ -36,6 +36,11 @@ public:
     float landingImpact() const noexcept { return landingImpact_; }
     const CharacterMotorSettings& settings() const noexcept { return settings_; }
 
+    // Moves without gravity towards a 3D velocity (swimming, jetpack flight).
+    // Walls still block; the ground stops a descent. `responsiveness` is the
+    // acceleration in m/s^2.
+    void stepFree(const Vec3& desiredVelocity, float responsiveness, float dt, const CollisionWorld& world);
+
     // Overwrites the full state (network reconciliation).
     void setState(const Vec3& feet, const Vec3& vel, bool grounded)
     {

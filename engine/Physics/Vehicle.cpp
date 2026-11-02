@@ -14,7 +14,71 @@ const VehicleSpec kSpecs[] = {
     {"Van", 5.0f, 2.0f, 2.1f, 3.0f, 0.38f, 24.0f, 6.0f, 4.8f, 11.0f, 0.55f, 2200},
     {"Cab", 4.7f, 1.9f, 1.5f, 2.75f, 0.36f, 30.0f, 7.0f, 6.5f, 13.0f, 0.60f, 1800},
     {"Cruiser", 4.8f, 1.95f, 1.5f, 2.8f, 0.37f, 38.0f, 8.0f, 9.0f, 16.0f, 0.62f, 999999},
+    {"Vortex GT", 4.4f, 1.95f, 1.15f, 2.6f, 0.35f, 52.0f, 8.0f, 12.5f, 19.0f, 0.60f, 12000},
+    {"Skyhawk", 8.6f, 2.2f, 2.8f, 3.0f, 0.15f, 38.0f, 10.0f, 7.0f, 9.0f, 0.0f, 60000, true},
 };
+
+// Helicopter: yaw with steer, forward/back with throttle, ascend/descend.
+// Lands on the ground, on water and on roofs; walls stop it.
+void stepHelicopter(VehicleState& s, const VehicleSpec& spec, const VehicleControls& in, float dt, const CollisionWorld& world)
+{
+    const bool wrecked = s.damage >= 1.0f;
+    const bool active = !wrecked && (in.throttle != 0.0f || in.steer != 0.0f || in.ascend || in.descend);
+    const float floorY = std::max(world.groundHeight(s.position.x, s.position.z), world.waterLevel(s.position.x, s.position.z));
+    std::vector<AABB> boxes;
+    const float r = spec.width;
+    world.gatherColliders(AABB({s.position.x - 6.0f, s.position.y - 3.0f, s.position.z - 6.0f},
+                               {s.position.x + 6.0f, s.position.y + spec.height + 1.0f, s.position.z + 6.0f}),
+                          boxes);
+    float ground = floorY;
+    for (const AABB& b : boxes) {
+        if (s.position.x > b.min.x && s.position.x < b.max.x && s.position.z > b.min.z && s.position.z < b.max.z &&
+            b.max.y <= s.position.y + 0.6f) {
+            ground = std::max(ground, b.max.y); // a roof under us
+        }
+    }
+    const bool airborne = s.position.y > ground + 0.05f;
+    s.rotor += clampv((active || airborne ? 1.0f : 0.0f) - s.rotor, -0.35f * dt, 0.5f * dt);
+    s.rotor = wrecked ? std::max(0.0f, s.rotor - dt) : s.rotor;
+    const float lift = s.rotor >= 0.75f ? 1.0f : 0.0f;
+
+    s.yaw = wrapAngle(s.yaw + clampv(in.steer, -1.0f, 1.0f) * 1.5f * dt * (airborne ? 1.0f : 0.3f));
+    const float targetSpeed = airborne ? (in.throttle >= 0.0f ? in.throttle * spec.maxSpeed : in.throttle * spec.maxReverse) : 0.0f;
+    s.speed += clampv(targetSpeed - s.speed, -spec.braking * dt, spec.acceleration * dt);
+    float targetVs = in.ascend ? 6.0f : (in.descend ? -5.0f : 0.0f);
+    if (lift < 1.0f) targetVs = -12.0f; // not spun up (or wrecked): it falls
+    if (s.position.y > 140.0f) targetVs = std::min(targetVs, 0.0f);
+    s.verticalSpeed += clampv(targetVs - s.verticalSpeed, -9.0f * dt, 7.0f * dt);
+
+    Vec3 next = s.position + s.forward() * (s.speed * dt);
+    next.y += s.verticalSpeed * dt;
+    // Walls: a box taller than our skids that overlaps the body stops us.
+    for (const AABB& b : boxes) {
+        if (b.max.y <= next.y + 0.4f || b.min.y >= next.y + spec.height) continue;
+        const float cx = clampv(next.x, b.min.x, b.max.x), cz = clampv(next.z, b.min.z, b.max.z);
+        const float dx = next.x - cx, dz = next.z - cz;
+        if (dx * dx + dz * dz < r * r) {
+            next.x = s.position.x;
+            next.z = s.position.z;
+            s.lastImpact = std::max(s.lastImpact, std::fabs(s.speed));
+            s.damage = std::min(1.0f, s.damage + std::fabs(s.speed) * 0.01f);
+            s.speed *= -0.3f;
+            break;
+        }
+    }
+    s.position = next;
+    const float newFloor = std::max(ground, std::max(world.groundHeight(next.x, next.z), world.waterLevel(next.x, next.z)));
+    if (s.position.y <= newFloor) {
+        if (s.verticalSpeed < -9.0f) s.damage = std::min(1.0f, s.damage + (-s.verticalSpeed - 9.0f) * 0.08f);
+        s.position.y = newFloor;
+        s.verticalSpeed = std::max(0.0f, s.verticalSpeed);
+        s.speed *= std::exp(-4.0f * dt);
+    }
+    s.pitch = clampv(-s.speed / spec.maxSpeed * 0.25f, -0.25f, 0.25f) * (airborne ? 1.0f : 0.0f);
+    s.roll = clampv(in.steer * 0.12f, -0.2f, 0.2f) * (airborne ? 1.0f : 0.0f);
+    s.steer = 0.0f;
+    s.wheelSpin = std::fmod(s.wheelSpin + s.rotor * 35.0f * dt, 6.2831853f);
+}
 
 float sign(float v) { return v > 0.0f ? 1.0f : (v < 0.0f ? -1.0f : 0.0f); }
 } // namespace
@@ -64,6 +128,10 @@ void stepVehicle(VehicleState& s, const VehicleSpec& spec, const VehicleControls
 {
     s.lastImpact = 0.0f;
     if (dt <= 0.0f) {
+        return;
+    }
+    if (spec.flies) {
+        stepHelicopter(s, spec, in, dt, world);
         return;
     }
     const float wreck = s.damage >= 1.0f || s.drowned ? 0.0f : 1.0f;

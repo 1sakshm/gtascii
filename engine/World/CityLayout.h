@@ -55,7 +55,8 @@ public:
     static constexpr int kCanalRow = 4;
     static constexpr float kCanalZ0 = 16.0f, kCanalZ1 = 48.0f;
     static constexpr float kCanalWaterLevel = -0.4f;
-    static constexpr float kCanalFloor = -0.55f;
+    static constexpr float kCanalFloor = -2.4f;   // deep enough to swim
+    static constexpr float kDeepSea = -7.0f;      // open ocean floor, past the shallows
     static constexpr int kDocksRow = -4; // beach column chunks with z <= this are docks
     static constexpr float kQuayEdge = 36.0f;
 
@@ -69,6 +70,8 @@ public:
     ChunkRoads roads(const ChunkCoord& c) const;
     Surface surface(const ChunkCoord& c, float localX, float localZ) const;
     float groundHeight(float worldX, float worldZ) const;
+    // Water surface at a position, or -1e9 on dry land.
+    float waterLevel(float worldX, float worldZ) const;
     const Landmark* landmark(const ChunkCoord& c) const;
     const Landmark* findLandmark(const std::string& type) const;
     bool isCanal(const ChunkCoord& c) const { return c.z == kCanalRow && c.x < kBeachColumn; }

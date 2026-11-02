@@ -15,6 +15,7 @@ public:
     std::vector<AABB> dynamicBoxes;
 
     float groundHeight(float x, float z) const override { return base_.groundHeight(x, z); }
+    float waterLevel(float x, float z) const override { return base_.waterLevel(x, z); }
     void gatherColliders(const AABB& region, std::vector<AABB>& out) const override
     {
         base_.gatherColliders(region, out);

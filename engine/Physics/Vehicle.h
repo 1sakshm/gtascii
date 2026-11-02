@@ -9,7 +9,7 @@
 
 namespace av {
 
-enum class VehicleModel : std::uint8_t { Sedan, Coupe, Van, Cab, Cruiser, Count };
+enum class VehicleModel : std::uint8_t { Sedan, Coupe, Van, Cab, Cruiser, Sports, Helicopter, Count };
 
 struct VehicleSpec {
     const char* name;
@@ -19,6 +19,7 @@ struct VehicleSpec {
     float acceleration, braking; // m/s^2
     float maxSteer;              // radians
     int price;                   // dealership price ($)
+    bool flies = false;          // helicopter: flight model instead of wheels
 };
 
 const VehicleSpec& vehicleSpec(VehicleModel model);
@@ -27,6 +28,7 @@ struct VehicleControls {
     float throttle = 0.0f; // -1 (brake / reverse) .. 1 (accelerate)
     float steer = 0.0f;    // -1 (right) .. 1 (left)
     bool handbrake = false;
+    bool ascend = false, descend = false; // helicopter collective
 };
 
 // Kinematic bicycle-model car. `position` is the centre of the footprint at
@@ -41,6 +43,8 @@ struct VehicleState {
     float damage = 0.0f;    // 0 (pristine) .. 1 (wrecked)
     float lastImpact = 0.0f; // largest impact speed in the last step (m/s)
     bool drowned = false;
+    float verticalSpeed = 0.0f; // helicopter
+    float rotor = 0.0f;         // helicopter rotor spin-up 0..1
 
     Vec3 forward() const { return {std::sin(yaw), 0.0f, std::cos(yaw)}; }
     Vec3 left() const { return {std::cos(yaw), 0.0f, -std::sin(yaw)}; }

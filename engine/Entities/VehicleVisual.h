@@ -31,15 +31,18 @@ private:
         Mesh paint;  // drawn with the car's paint material
         Mesh fixed;  // glass, trim, lights (own materials)
         Mesh sirenLeft, sirenRight;
+        Mesh rotor, tailRotor; // helicopter
         bool hasSirens = false;
     };
     void build(VehicleModel model, ModelMeshes& out) const;
+    void buildHelicopter(ModelMeshes& out) const;
 
     std::array<ModelMeshes, static_cast<std::size_t>(VehicleModel::Count)> models_;
     Mesh wheel_;
     MaterialId paints_[kCarPaintCount];
     MaterialId policeBlack_, sirenRed_, sirenBlue_, sirenOff_;
     MaterialId glass_, trim_, headlight_, taillight_, tire_, hub_, policeWhite_, cabSign_, cabYellow_;
+    MaterialId heliBody_, rotorMat_;
 };
 
 } // namespace av

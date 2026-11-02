@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace av {
 class Audio;
@@ -34,6 +35,10 @@ struct LaunchOptions {
     bool autopilot = false;
     bool hourGiven = false; // --hour on the command line overrides the saved world clock
     bool mouse = true;
+    // Scripted sessions (headless captures, demos).
+    std::vector<std::string> execLines; // chat lines sent once connected (e.g. cheat codes)
+    int startWeapon = 0;
+    bool holdFire = false;
 };
 
 struct RunSummary {

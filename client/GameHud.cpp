@@ -78,8 +78,8 @@ void drawHelpBar(av::Framebuffer& fb, bool driving)
     bar.bg = kBarBg;
     av::draw::fillRect(fb, 0, fb.height() - 1, fb.width(), 1, bar);
     const char* help = driving
-        ? "W/S throttle/brake  A/D steer  Space handbrake  F get out  Arrows/drag camera  Enter chat  M map  I items  Tab players  Q quit"
-        : "WASD move  Shift walk  Space jump  C crouch  E use  F car  X punch  G wave  Arrows/drag camera  T time  Enter chat  M map  I items  Tab players  Q quit";
+        ? "W/S throttle  A/D steer  Space handbrake (heli: up)  Z heli down  F get out  Arrows camera  Enter chat  M map  Tab scores  Esc menu"
+        : "WASD move  Shift run/walk  Space jump  X attack/shoot  Q/1-0 weapon  J jetpack  E use  F car  P phone  Enter chat  M map  Esc menu";
     av::draw::text(fb, 1, fb.height() - 1, help, kDim, kBarBg);
 }
 

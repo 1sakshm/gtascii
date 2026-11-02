@@ -13,6 +13,7 @@ add_executable(engine_tests
     TestNetwork.cpp
     TestPresenterRoundTrip.cpp
     TestRooms.cpp
+    TestCombat.cpp
     TestSimulation.cpp
     TestUtf8.cpp
     TestWorld.cpp

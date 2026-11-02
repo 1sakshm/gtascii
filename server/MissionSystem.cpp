@@ -12,7 +12,7 @@ using namespace av::proto;
 namespace {
 constexpr int kPickupReward = 100;
 constexpr int kAllPickupsBonus = 5000;
-const VehicleModel kDealershipStock[] = {VehicleModel::Sedan, VehicleModel::Van, VehicleModel::Coupe};
+const VehicleModel kDealershipStock[] = {VehicleModel::Sedan, VehicleModel::Van, VehicleModel::Coupe, VehicleModel::Sports};
 
 float flatDistance(const Vec3& a, const Vec3& b) { return length(Vec3{a.x - b.x, 0, a.z - b.z}); }
 
@@ -48,7 +48,11 @@ void ServerWorld::interact(Entity player)
     for (const Entity e : reg_.entitiesWith<InteractionComponent>()) {
         const InteractionComponent* ic = reg_.get<InteractionComponent>(e);
         const TransformComponent* t = reg_.get<TransformComponent>(e);
-        if (!ic || !t || flatDistance(t->position, pos) > ic->radius) {
+        if (!ic || !t || flatDistance(t->position, pos) > ic->radius || std::fabs(t->position.y - pos.y) > 3.0f) {
+            continue;
+        }
+        if (ic->action != InteractionComponent::Action::Marker) {
+            if (interiorInteract(player, *reg_.get<InteractionComponent>(e))) return;
             continue;
         }
         switch (ic->kind) {
@@ -179,10 +183,13 @@ void ServerWorld::updateMissions(float dt)
         if (onFoot) {
             reg_.each<InteractionComponent>([&](Entity e, InteractionComponent& ic) {
                 const TransformComponent* t = reg_.get<TransformComponent>(e);
-                if (!t || flatDistance(t->position, pos) > ic.radius || !p->prompt.empty()) {
+                if (!t || flatDistance(t->position, pos) > ic.radius || !p->prompt.empty() ||
+                    std::fabs(t->position.y - pos.y) > 3.0f) {
                     return;
                 }
-                if (ic.kind == MarkerKind::MissionStart && p->mission.index < 0) {
+                if (ic.action != InteractionComponent::Action::Marker) {
+                    p->prompt = interiorPrompt(pe, ic);
+                } else if (ic.kind == MarkerKind::MissionStart && p->mission.index < 0) {
                     const MissionDef& m = missions_[static_cast<std::size_t>(ic.missionIndex)];
                     const bool repeat = p->profile->missionsDone.count(m.id) != 0;
                     p->prompt = "Press E to start '" + m.title + "' (" + money(repeat ? m.reward / 2 : m.reward) +

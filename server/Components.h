@@ -51,6 +51,9 @@ struct CharacterComponent {
     Vec3 moveCommand;                      // NPC intent
     bool jumpCommand = false;
     float punchCooldown = 0.0f;
+    std::uint8_t weapon = 0;               // weapon in hand (av::proto::Weapon)
+    float weaponCooldown = 0.0f;
+    bool dead = false;                     // NPC killed: stays down, drops loot once
 
     void trigger(std::uint8_t type)
     {
@@ -71,6 +74,7 @@ struct VehicleComponent {
     bool sirens = false;
     bool missionVehicle = false;
     float abandonedTime = 0.0f;
+    bool exploded = false;           // wrecked by damage: blew up once
 };
 
 // AI that drives a vehicle (attached to the vehicle entity).
@@ -86,6 +90,7 @@ struct NPCComponent {
     av::PedestrianBrain brain;
     bool police = false;
     bool driver = false;     // sits in a traffic vehicle
+    bool dancer = false;     // club crowd: stays on the dance floor
     float knockTimer = 0.0f;
 };
 
@@ -100,10 +105,36 @@ struct PickupComponent {
 };
 
 struct InteractionComponent {
-    av::proto::MarkerKind kind = av::proto::MarkerKind::MissionStart;
+    av::proto::MarkerKind kind = av::proto::MarkerKind::MissionStart; // None: no visible marker
     float radius = 2.5f;
     int missionIndex = -1;
     std::string label;
+    // Interiors and their furniture.
+    enum class Action { Marker, Enter, Exit, Slots, Stocks, Sleep } action = Action::Marker;
+    int interior = -1;
+};
+
+// Loot and weapon spawns lying on the ground (replicated as pickups).
+struct DropComponent {
+    std::uint8_t type = av::proto::PickupType::Cash; // PickupType or WeaponBase + weapon
+    int amount = 0;           // cash, or ammo
+    float ttl = 60.0f;        // < 0: permanent spawn point (respawns)
+    float respawn = 0.0f;     // permanent spawns: seconds until it is back
+};
+
+// Short-lived visuals: tracers and explosions.
+struct EffectComponent {
+    av::proto::EffectType type = av::proto::EffectType::Tracer;
+    float ttl = 0.2f;
+    Vec3 to; // tracer end
+};
+
+// Rockets and grenades in flight.
+struct ProjectileComponent {
+    std::uint8_t weapon = 0;
+    Entity owner = av::kNullEntity;
+    Vec3 velocity;
+    float fuse = 2.0f;
 };
 
 // Persistent per-player data (saved to disk, keyed by name).
@@ -148,6 +179,11 @@ struct PlayerComponent {
     bool raceFinished = false;
     bool frozen = false;     // start-line countdown
     float catchTime = 0.0f;  // cops & robbers contact timer (on the robber)
+    // Combat & cheats.
+    bool god = false;
+    int lastWeaponRequest = -1;
+    std::string lastCheat;
+    float casinoCooldown = 0.0f, stocksCooldown = 0.0f;
 };
 
 } // namespace server

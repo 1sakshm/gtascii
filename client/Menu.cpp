@@ -551,11 +551,15 @@ struct MainMenu::Impl {
             static const char* lines[] = {
                 "ON FOOT",  "  W A S D move   Shift walk   Space jump   C crouch",
                 "  F get in / out of cars (or ride with a friend)   E use",
-                "  X punch   G wave   P phone (jobs, races, cops & robbers)",
+                "  X attack / shoot (aims where the camera looks)   G wave",
+                "  Q next weapon   1-9, 0 pick a weapon   ` fists   J jetpack",
+                "  P phone (jobs, races, cops & robbers, cheat list)",
                 "DRIVING",  "  W/S throttle / brake   A/D steer   Space handbrake",
+                "  Helicopter: Space up, Z down, W/S forward / back",
                 "CAMERA",   "  arrows or drag the mouse   +/- or wheel zoom   V recenter",
                 "OTHER",    "  Enter chat   M map   I items   Tab scoreboard   T skip an hour",
-                "  F9 record the session (.cast file)   H hide HUD   Q quit to menu"};
+                "  F9 record the session (.cast file)   H hide HUD   Esc quit to menu",
+                "CHEATS",   "  type them in chat: FULLCLIP  FLYBOY  ROCKETMAN  IAMGOD ..."};
             const int rows = static_cast<int>(std::size(lines)) + 3;
             const int cw = std::min(fb.width() - 2, 66);
             const int cx = (fb.width() - cw) / 2;
