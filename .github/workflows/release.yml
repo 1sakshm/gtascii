@@ -72,7 +72,14 @@ jobs:
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: (cd dist/npm/gtascii && npm publish --access public --provenance)
+        run: |
+          cd dist/npm/gtascii
+          version=$(node -p "require('./package.json').version")
+          if npm view "gtascii@$version" version > /dev/null 2>&1; then
+            echo "gtascii@$version is already on npm - skipping the publish"
+          else
+            npm publish --access public --provenance
+          fi
       - name: GitHub release with zips
         env:
           GH_TOKEN: ${{ github.token }}
